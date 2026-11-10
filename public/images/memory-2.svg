@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" role="img" aria-labelledby="title desc">
+  <title id="title">Second memory placeholder</title>
+  <desc id="desc">Soft overlapping architectural shapes in neutral stone tones, ready to replace with a personal photograph.</desc>
+  <path fill="#f0efed" d="M0 0h960v720H0z"/>
+  <path fill="#e2e0dc" d="M240 600V300a180 180 0 0 1 360 0v300z"/>
+  <path fill="#d4d3ce" d="M410 720V410a145 145 0 0 1 290 0v310z"/>
+  <path fill="#e8e6e2" d="M0 600h960v120H0z"/>
+</svg>

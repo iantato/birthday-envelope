@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" role="img" aria-labelledby="title desc">
+  <title id="title">Third memory placeholder</title>
+  <desc id="desc">A simple botanical silhouette on pale gray paper, ready to replace with a personal photograph.</desc>
+  <path fill="#eceeeb" d="M0 0h960v720H0z"/>
+  <ellipse cx="480" cy="619" rx="170" ry="18" fill="#dfe3dc"/>
+  <path d="M480 610V200" stroke="#b6bfb3" stroke-width="6"/>
+  <path d="M480 480c-110 0-150-70-150-120 100 0 150 55 150 120Zm0-110c100 0 150-65 150-120-100 0-150 50-150 120Zm0-90c-80 0-110-50-110-100 75 0 110 40 110 100Z" fill="#c5cdc1"/>
+</svg>

@@ -1,0 +1,15 @@
+---
+import { siteContent } from '../data/siteContent';
+const { candle } = siteContent;
+---
+
+<section class="reader-section candle-section" aria-labelledby="candle-heading">
+  <h2 id="candle-heading">{candle.prompt}</h2>
+  <button class="candle-trigger" type="button" data-candle-trigger data-blown="false" aria-label={candle.buttonLabel} aria-describedby="candle-hint" aria-pressed="false" aria-controls="candle-wish">
+    <span class="candle-flame" aria-hidden="true"></span>
+    <span class="candle-wick" aria-hidden="true"></span>
+    <span class="candle-wax" aria-hidden="true"></span>
+  </button>
+  <p class="candle-hint" id="candle-hint" data-candle-hint data-done-label={candle.doneLabel}>{candle.hint}</p>
+  <p class="candle-wish" id="candle-wish" data-candle-wish data-wish={candle.revealedWish} aria-live="polite" aria-atomic="true"></p>
+</section>

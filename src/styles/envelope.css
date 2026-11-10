@@ -1,0 +1,229 @@
+.envelope-stage {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  padding: max(40px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(80px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+
+.envelope-composition {
+  position: relative;
+  width: min(500px, 88vw, 100%, calc((100svh - 80px) / 1.4));
+}
+
+.envelope-scene {
+  position: relative;
+  isolation: isolate;
+  aspect-ratio: 500 / 320;
+  border-radius: 4px;
+  box-shadow: var(--paper-shadow);
+}
+
+/* Back: -1, open flap: 0, letter: 1, pocket: 2, closed flap: 3,
+   details: 4, opening control: 5. Keep the scene unclipped for the lift. */
+.envelope-back {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid var(--envelope-edge);
+  border-radius: inherit;
+  background: var(--envelope-back);
+}
+
+.envelope-pocket,
+.envelope-flap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.envelope-pocket {
+  z-index: 2;
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.envelope-fold-left,
+.envelope-fold-right {
+  fill: var(--envelope-face);
+}
+
+.envelope-fold-bottom,
+.envelope-flap-paper {
+  fill: var(--paper);
+}
+
+.envelope-seam {
+  fill: none;
+  stroke: var(--envelope-edge);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.envelope-flap {
+  z-index: 3;
+  transform-origin: center top;
+  transform: perspective(1200px) rotateX(0deg);
+  /* The reverse face is the inside of the same sheet, not an empty triangle. */
+  backface-visibility: visible;
+  transition: transform 600ms cubic-bezier(.2, .7, .2, 1), z-index 0s 300ms;
+}
+
+.letter-slot {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* Mask the paper below the envelope, while leaving room above for its lift. */
+  clip-path: inset(-100% -10% 0);
+}
+
+.letter-preview {
+  position: absolute;
+  z-index: 1;
+  top: 4%;
+  left: 8%;
+  width: 84%;
+  height: 110%;
+  padding: 0;
+  border: 1px solid var(--envelope-edge);
+  border-radius: 5px;
+  background: var(--paper);
+  box-shadow: var(--paper-shadow);
+  text-align: left;
+  opacity: 0;
+  transform: translateY(0);
+  transition: transform 850ms cubic-bezier(.2, .7, .2, 1) 350ms, opacity 0s 300ms;
+  touch-action: manipulation;
+}
+
+.letter-preview:disabled {
+  pointer-events: none;
+}
+
+.letter-preview-content {
+  position: absolute;
+  inset: 12% 10% auto;
+  display: grid;
+  gap: 10px;
+}
+
+.letter-preview-greeting {
+  margin-bottom: 10px;
+  font-size: clamp(12px, 2.8vw, 16px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.letter-preview-line {
+  height: 2px;
+  width: 92%;
+  background: var(--envelope-edge);
+  opacity: .65;
+}
+
+.letter-preview-line:last-child {
+  width: 65%;
+}
+
+.envelope-scene:not([data-stage='sealed']) .envelope-flap {
+  z-index: 0;
+  transform: perspective(1200px) rotateX(180deg);
+}
+
+.envelope-scene:not([data-stage='sealed']) .letter-preview {
+  opacity: 1;
+  transform: translateY(-55%);
+}
+
+.envelope-scene:not([data-stage='sealed']) .envelope-seal {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.85);
+}
+
+/* Reset immediately; replay must not run the opening transitions backward. */
+.envelope-scene[data-stage='sealed'] .envelope-flap,
+.envelope-scene[data-stage='sealed'] .letter-preview,
+.envelope-scene[data-stage='sealed'] .envelope-seal {
+  transition: none;
+}
+
+.envelope-label {
+  position: absolute;
+  z-index: 4;
+  inset: 75% 12% auto;
+  text-align: center;
+  font-size: clamp(12px, 2.8vw, 14px);
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.envelope-seal {
+  position: absolute;
+  z-index: 4;
+  top: 57%;
+  left: 50%;
+  display: grid;
+  width: clamp(24px, 6vw, 30px);
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: opacity 160ms, transform 160ms;
+}
+
+.envelope-open {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.envelope-open:active {
+  background: rgb(75 85 99 / 0.025);
+}
+
+.envelope-hint {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  margin: 28px 0 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: 0.035em;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .envelope-composition {
+    width: min(420px, 92vw, 100%, calc((100svh - 80px) / 1.4));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .envelope-flap,
+  .letter-preview,
+  .envelope-seal {
+    transition: none;
+  }
+}

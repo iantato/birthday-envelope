@@ -1,0 +1,40 @@
+---
+import { siteContent } from '../data/siteContent';
+const { memories, gallery } = siteContent;
+---
+
+{memories.length > 0 && (
+  <section class="reader-section" aria-labelledby="memories-heading">
+    <h2 id="memories-heading">{gallery.heading}</h2>
+    <div class="memory-list">
+      {memories.map((memory) => (
+        <figure class="memory-figure">
+          <button
+            class="memory-open"
+            type="button"
+            data-memory-open
+            data-caption={memory.caption}
+            aria-label={`${memory.src.trim() ? gallery.openLabel : gallery.unavailableLabel}: ${memory.alt || memory.caption}`}
+            aria-haspopup="dialog"
+            aria-controls="photo-dialog"
+            disabled={!memory.src.trim()}
+          >
+            <span class="memory-placeholder" data-memory-fallback hidden={!!memory.src.trim()} role="img" aria-label={`${gallery.unavailableLabel}: ${memory.alt}`}>
+              {gallery.unavailableLabel}
+            </span>
+            {memory.src.trim() && <img class="memory-image" data-memory-image src={memory.src} alt={memory.alt} loading="lazy" decoding="async" />}
+          </button>
+          <figcaption>{memory.caption}</figcaption>
+        </figure>
+      ))}
+    </div>
+    <dialog class="photo-dialog" id="photo-dialog" data-photo-dialog aria-label={gallery.dialogLabel} aria-describedby="photo-caption">
+      <button class="text-control" type="button" data-photo-close autofocus>{gallery.closeLabel}</button>
+      <figure>
+        <img class="photo-image" data-photo-image alt="" hidden />
+        <div class="photo-placeholder" data-photo-fallback hidden>{gallery.unavailableLabel}</div>
+        <figcaption id="photo-caption" data-photo-caption></figcaption>
+      </figure>
+    </dialog>
+  </section>
+)}

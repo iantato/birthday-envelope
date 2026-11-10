@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" role="img" aria-labelledby="title desc">
+  <title id="title">First memory placeholder</title>
+  <desc id="desc">A quiet abstract landscape in neutral gray tones, ready to replace with a personal photograph.</desc>
+  <path fill="#eeefed" d="M0 0h960v720H0z"/>
+  <circle cx="680" cy="230" r="65" fill="#dedfdc"/>
+  <path fill="#e1e3df" d="M0 450 260 310l330 190 370-130v350H0z"/>
+  <path fill="#d6d9d4" d="m0 565 340-145 330 180 290-80v200H0z"/>
+</svg>

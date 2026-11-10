@@ -1,0 +1,72 @@
+---
+import { siteContent } from '../data/siteContent';
+import '../styles/envelope.css';
+
+const { envelope } = siteContent;
+---
+
+<section class="envelope-stage" aria-label={siteContent.pageTitle}>
+  <div class="envelope-composition">
+    <div
+      class="envelope-scene"
+      data-envelope-scene
+      data-stage="sealed"
+      data-opening-hint={envelope.openingHint}
+      data-lifted-hint={envelope.liftedHint}
+      style={{ '--paper': envelope.paperColor, '--accent': envelope.sealColor }}
+    >
+      <div class="envelope-back" aria-hidden="true"></div>
+
+      <div class="letter-slot" id="letter-slot">
+        <button
+          class="letter-preview"
+          type="button"
+          data-letter-preview
+          aria-haspopup="dialog"
+          aria-controls="letter-dialog"
+          aria-expanded="false"
+          aria-label={envelope.letterLabel}
+          aria-describedby="envelope-hint"
+          aria-hidden="true"
+          disabled
+        >
+          <span class="letter-preview-content" aria-hidden="true">
+            <span class="letter-preview-greeting">{siteContent.letter.greeting}</span>
+            <span class="letter-preview-line"></span>
+            <span class="letter-preview-line"></span>
+            <span class="letter-preview-line"></span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Shared 500 x 320 geometry keeps all fold joints aligned at every size. -->
+      <svg class="envelope-pocket" viewBox="0 0 500 320" aria-hidden="true">
+        <path class="envelope-fold-left" d="M0 0 270 170 0 320Z" />
+        <path class="envelope-fold-right" d="M500 0 230 170 500 320Z" />
+        <path class="envelope-fold-bottom" d="M0 320 250 142 500 320Z" />
+        <path class="envelope-seam" d="M0 320 250 142 500 320" />
+      </svg>
+
+      <svg class="envelope-flap" viewBox="0 0 500 320" aria-hidden="true">
+        <path class="envelope-flap-paper" d="M0 0H500L256 182Q250 187 244 182Z" />
+        <path class="envelope-seam" d="m0 0 244 182q6 5 12 0L500 0" />
+      </svg>
+
+      {envelope.label && <span class="envelope-label" aria-hidden="true">{envelope.label}</span>}
+      {envelope.sealEnabled && (
+        <span class="envelope-seal" aria-hidden="true">{envelope.sealText}</span>
+      )}
+
+      <button
+        class="envelope-open"
+        type="button"
+        data-envelope-open
+        aria-controls="letter-slot"
+        aria-label={envelope.openLabel}
+        aria-describedby="envelope-hint"
+        aria-expanded="false"
+      ></button>
+    </div>
+    <p class="envelope-hint" id="envelope-hint" data-envelope-hint role="status">{envelope.hint}</p>
+  </div>
+</section>

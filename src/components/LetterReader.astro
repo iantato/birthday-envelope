@@ -1,0 +1,37 @@
+---
+import { siteContent } from '../data/siteContent';
+import '../styles/reader.css';
+import MusicToggle from './MusicToggle.astro';
+import MemoryGallery from './MemoryGallery.astro';
+import CandleWish from './CandleWish.astro';
+import FinalMessage from './FinalMessage.astro';
+
+const { letter } = siteContent;
+---
+
+<dialog
+  class="letter-reader"
+  id="letter-dialog"
+  data-letter-dialog
+  aria-labelledby="letter-greeting"
+  style={{ '--paper': siteContent.envelope.paperColor }}
+>
+  <header class="reader-toolbar">
+    <button class="reader-close" type="button" data-letter-close autofocus>
+      {letter.closeLabel}
+    </button>
+    <MusicToggle />
+  </header>
+  <article class="reader-letter">
+    <h1 id="letter-greeting">{letter.greeting}</h1>
+    <div class="reader-paragraphs" data-letter-paragraphs>
+      {letter.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+    </div>
+    <footer class="reader-signature">
+      <p>{letter.signOff}<br /><span>{siteContent.senderName}</span></p>
+    </footer>
+    <MemoryGallery />
+    <CandleWish />
+    <FinalMessage />
+  </article>
+</dialog>

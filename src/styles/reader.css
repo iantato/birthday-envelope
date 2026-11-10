@@ -1,0 +1,344 @@
+html.letter-reading {
+  overflow: hidden;
+}
+
+body.letter-reading {
+  position: fixed;
+  top: var(--reader-scroll-top);
+  inset-inline: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.letter-reader {
+  position: fixed;
+  inset: 0;
+  width: min(100%, var(--reader-width));
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid var(--envelope-edge);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--paper-shadow);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 90px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.letter-reader::backdrop {
+  background: var(--bg);
+  opacity: .96;
+}
+
+.reader-toolbar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  padding: max(12px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    12px max(24px, env(safe-area-inset-left));
+  background: var(--paper);
+  border-bottom: 1px solid var(--envelope-face);
+}
+
+.reader-close {
+  padding: 8px 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  font-size: 14px;
+  text-align: left;
+  text-underline-offset: 4px;
+  touch-action: manipulation;
+}
+
+.reader-close:hover,
+.reader-close:active {
+  text-decoration: underline;
+}
+
+.reader-letter {
+  max-width: 65ch;
+  margin-inline: auto;
+  padding: clamp(28px, 6vw, 56px) max(24px, env(safe-area-inset-right))
+    max(64px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  font-size: clamp(16px, 2vw, 18px);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.reader-letter h1 {
+  margin: 0 0 32px;
+  font-size: 1.125em;
+  font-weight: 500;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.reader-letter p {
+  margin: 0 0 1.5em;
+  white-space: pre-line;
+  text-wrap: pretty;
+}
+
+.reader-signature {
+  margin-top: 40px;
+}
+
+.reader-signature p {
+  margin-bottom: 0;
+}
+
+.text-control {
+  padding: 8px 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  text-underline-offset: 4px;
+  touch-action: manipulation;
+}
+
+.text-control:hover,
+.text-control:active {
+  text-decoration: underline;
+}
+
+.music-control {
+  max-width: 100%;
+}
+
+.music-status {
+  display: block;
+  max-width: 30ch;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.reader-section {
+  margin-top: 64px;
+  padding-top: 40px;
+  border-top: 1px solid var(--envelope-edge);
+}
+
+.reader-section h2 {
+  margin: 0 0 28px;
+  font-size: 1em;
+  font-weight: 500;
+  text-wrap: balance;
+}
+
+.memory-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px 24px;
+}
+
+.memory-figure {
+  min-width: 0;
+  margin: 0;
+}
+
+.memory-open {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 1px solid var(--envelope-edge);
+  border-radius: 5px;
+  background: var(--envelope-back);
+}
+
+.memory-open:not(:disabled):hover {
+  border-color: var(--muted);
+}
+
+.memory-open:not(:disabled):active .memory-image {
+  opacity: .88;
+}
+
+.memory-image {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.memory-image[data-loaded] {
+  opacity: 1;
+}
+
+.memory-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  font-size: 14px;
+}
+
+.memory-figure figcaption,
+.photo-dialog figcaption {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.photo-dialog {
+  width: min(960px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  border: 1px solid var(--envelope-edge);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.photo-dialog > .text-control {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  background: var(--paper);
+}
+
+.photo-dialog::backdrop {
+  background: var(--bg);
+  opacity: .96;
+}
+
+.photo-dialog figure {
+  margin: 12px 0 0;
+}
+
+.photo-image {
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 200px);
+  max-height: calc(100dvh - 200px);
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.photo-placeholder {
+  padding: 60px 24px;
+  background: var(--envelope-back);
+}
+
+.candle-section {
+  text-align: center;
+}
+
+.candle-trigger {
+  position: relative;
+  display: block;
+  width: 76px;
+  height: 140px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  touch-action: manipulation;
+}
+
+.candle-wax {
+  position: absolute;
+  bottom: 12px;
+  left: 27px;
+  width: 22px;
+  height: 76px;
+  border: 1px solid var(--envelope-edge);
+  border-radius: 4px 4px 2px 2px;
+  background: var(--envelope-face);
+}
+
+.candle-wick {
+  position: absolute;
+  bottom: 88px;
+  left: 37px;
+  width: 2px;
+  height: 9px;
+  background: var(--ink);
+}
+
+.candle-flame {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  width: 12px;
+  height: 24px;
+  border-radius: 65% 35% 55% 45%;
+  background: #d2b17d;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+}
+
+.candle-trigger[data-blown='true'] .candle-flame {
+  opacity: 0;
+  transform: translateX(-50%) scale(0);
+}
+
+.candle-trigger[data-blown='false'] .candle-flame {
+  transition: none;
+}
+
+.reader-letter .candle-hint {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.reader-letter .candle-wish {
+  min-height: 3.5em;
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .memory-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .memory-figure:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .memory-open {
+    transition: border-color 160ms ease-out;
+  }
+
+  .memory-image {
+    transition: opacity 160ms ease-out;
+  }
+
+  .candle-flame {
+    transition: opacity 200ms, transform 200ms;
+  }
+  .letter-reader[open] {
+    animation: reader-enter 180ms ease-out;
+  }
+
+  @keyframes reader-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
