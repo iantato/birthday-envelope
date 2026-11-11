@@ -3,13 +3,25 @@ import { siteContent } from '../data/siteContent';
 const { candle } = siteContent;
 ---
 
-<section class="reader-section candle-section" aria-labelledby="candle-heading">
+<section class="reader-section candle-section" data-candle-section data-candle-state="idle" aria-labelledby="candle-heading">
   <h2 id="candle-heading">{candle.prompt}</h2>
   <button class="candle-trigger" type="button" data-candle-trigger data-blown="false" aria-label={candle.buttonLabel} aria-describedby="candle-hint" aria-pressed="false" aria-controls="candle-wish">
-    <span class="candle-flame" aria-hidden="true"></span>
+    <span class="candle-flame" aria-hidden="true"><span class="candle-flame-core"></span></span>
+    <svg class="candle-smoke" viewBox="0 0 24 64" width="24" height="64" aria-hidden="true" focusable="false">
+      <path d="M12 62 C4 51 22 43 13 32 S5 15 14 3" />
+    </svg>
     <span class="candle-wick" aria-hidden="true"></span>
     <span class="candle-wax" aria-hidden="true"></span>
   </button>
-  <p class="candle-hint" id="candle-hint" data-candle-hint data-done-label={candle.doneLabel}>{candle.hint}</p>
-  <p class="candle-wish" id="candle-wish" data-candle-wish data-wish={candle.revealedWish} aria-live="polite" aria-atomic="true"></p>
+  <p class="candle-hint" id="candle-hint">{candle.hint}</p>
+  <div class="candle-actions">
+    <button class="candle-ready" type="button" data-candle-ready aria-controls="candle-status">{candle.readyLabel}</button>
+    <button class="text-control" type="button" data-candle-fallback aria-controls="candle-wish">{candle.fallbackLabel}</button>
+    <button class="text-control" type="button" data-candle-cancel hidden>{candle.cancelLabel}</button>
+  </div>
+  <p class="candle-status" id="candle-status" data-candle-status role="status" aria-atomic="true"></p>
+  <div class="candle-wish-slot">
+    <p class="candle-wish-space" aria-hidden="true">{candle.revealedWish}</p>
+    <p class="candle-wish" id="candle-wish" data-candle-wish data-wish={candle.revealedWish} aria-live="polite" aria-atomic="true"></p>
+  </div>
 </section>

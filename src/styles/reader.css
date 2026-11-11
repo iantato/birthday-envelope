@@ -55,7 +55,7 @@ body.letter-reading {
   border: 0;
   border-radius: 2px;
   background: transparent;
-  font-size: 14px;
+  font-size: .875rem;
   text-align: left;
   text-underline-offset: 4px;
   touch-action: manipulation;
@@ -71,9 +71,23 @@ body.letter-reading {
   margin-inline: auto;
   padding: clamp(28px, 6vw, 56px) max(24px, env(safe-area-inset-right))
     max(64px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
-  font-size: clamp(16px, 2vw, 18px);
+  font-size: 1rem;
   line-height: 1.75;
   overflow-wrap: anywhere;
+}
+
+.reader-letter h1,
+.reader-paragraphs,
+.reader-signature,
+.candle-wish,
+.candle-wish-space {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.reader-paragraphs {
+  line-height: 1.9;
 }
 
 .reader-letter h1 {
@@ -104,7 +118,7 @@ body.letter-reading {
   border-radius: 2px;
   background: transparent;
   color: var(--ink);
-  font-size: 14px;
+  font-size: .875rem;
   text-underline-offset: 4px;
   touch-action: manipulation;
 }
@@ -121,7 +135,7 @@ body.letter-reading {
 .music-status {
   display: block;
   max-width: 30ch;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.5;
 }
 
@@ -186,13 +200,13 @@ body.letter-reading {
   display: grid;
   place-items: center;
   padding: 20px;
-  font-size: 14px;
+  font-size: .875rem;
 }
 
 .memory-figure figcaption,
 .photo-dialog figcaption {
   margin-top: 12px;
-  font-size: 14px;
+  font-size: .875rem;
   line-height: 1.6;
   text-wrap: pretty;
   overflow-wrap: anywhere;
@@ -244,6 +258,13 @@ body.letter-reading {
 }
 
 .candle-section {
+  --candle-flame-color: #d2b17d;
+  --candle-smoke-color: var(--muted);
+  --candle-bend-duration: 200ms;
+  --candle-fade-duration: 320ms;
+  --candle-smoke-duration: 1200ms;
+  --candle-wish-duration: 500ms;
+  --candle-flicker-duration: 1800ms;
   text-align: center;
 }
 
@@ -286,10 +307,32 @@ body.letter-reading {
   left: 50%;
   width: 12px;
   height: 24px;
-  border-radius: 65% 35% 55% 45%;
-  background: #d2b17d;
   transform: translateX(-50%);
   transform-origin: center bottom;
+}
+
+.candle-flame-core {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 65% 35% 55% 45%;
+  background: var(--candle-flame-color);
+  transform-origin: center bottom;
+}
+
+.candle-smoke {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+  fill: none;
+  stroke: var(--candle-smoke-color);
+  stroke-width: 1;
+  stroke-linecap: round;
 }
 
 .candle-trigger[data-blown='true'] .candle-flame {
@@ -297,18 +340,66 @@ body.letter-reading {
   transform: translateX(-50%) scale(0);
 }
 
-.candle-trigger[data-blown='false'] .candle-flame {
-  transition: none;
-}
-
 .reader-letter .candle-hint {
   margin-bottom: 12px;
-  font-size: 14px;
+  font-size: .875rem;
 }
 
-.reader-letter .candle-wish {
+.candle-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.candle-actions [data-candle-cancel][hidden] {
+  /* Keep its exact text-sized space without exposing a hidden control. */
+  display: block !important;
+  visibility: hidden;
+}
+
+.candle-ready {
+  padding: 8px 24px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--envelope-face);
+}
+
+.candle-actions button:disabled {
+  opacity: .6;
+}
+
+.reader-letter .candle-status {
+  min-height: 4.5em;
+  max-width: 40ch;
+  margin: 12px auto;
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.candle-wish-slot {
+  display: grid;
+}
+
+.reader-letter .candle-wish,
+.reader-letter .candle-wish-space {
+  grid-area: 1 / 1;
   min-height: 3.5em;
   margin: 0;
+}
+
+.candle-wish-space {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.candle-wish {
+  opacity: 0;
+}
+
+[data-candle-state='revealed'] .candle-wish {
+  opacity: 1;
 }
 
 @media (min-width: 640px) {
@@ -321,7 +412,64 @@ body.letter-reading {
   }
 }
 
+@media (min-width: 900px) {
+  .reader-letter {
+    font-size: 1.125rem;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  .candle-trigger[data-blown='false'] .candle-flame-core {
+    animation: candle-flicker var(--candle-flicker-duration) ease-in-out infinite;
+  }
+
+  [data-candle-state='listening'] .candle-trigger .candle-flame {
+    transform: translateX(-50%) rotate(calc(var(--blow-level, 0) * 5deg));
+    transition: transform 100ms ease-out;
+  }
+
+  [data-candle-state='extinguishing'] .candle-trigger .candle-flame {
+    animation: candle-bend var(--candle-bend-duration) ease-out forwards,
+      candle-extinguish var(--candle-fade-duration) ease-in var(--candle-bend-duration) forwards;
+  }
+
+  [data-candle-effects='true'] .candle-smoke {
+    animation: candle-smoke var(--candle-smoke-duration) ease-out
+      calc(var(--candle-bend-duration) + var(--candle-fade-duration)) forwards;
+  }
+
+  [data-candle-effects='true'][data-candle-state='revealed'] .candle-wish {
+    animation: candle-wish var(--candle-wish-duration) ease-out both;
+  }
+
+  @keyframes candle-flicker {
+    0%, 100% { transform: rotate(-2deg) scale(.98, 1); }
+    35% { transform: rotate(2deg) scale(1.02, .96); }
+    65% { transform: rotate(-1deg) scale(.97, 1.03); }
+  }
+
+  @keyframes candle-bend {
+    from { opacity: 1; transform: translateX(-50%) rotate(0deg) scale(1); }
+    to { opacity: 1; transform: translateX(-50%) rotate(24deg) scale(1, .9); }
+  }
+
+  @keyframes candle-extinguish {
+    from { opacity: 1; transform: translateX(-50%) rotate(24deg) scale(1, .9); }
+    to { opacity: 0; transform: translateX(-50%) rotate(32deg) scale(.15, 0); }
+  }
+
+  @keyframes candle-smoke {
+    0% { opacity: 0; transform: translateX(-50%) translateY(4px) scale(.75); }
+    18% { opacity: .4; }
+    60% { opacity: .22; }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(1.1); }
+  }
+
+  @keyframes candle-wish {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   .memory-open {
     transition: border-color 160ms ease-out;
   }
@@ -330,9 +478,6 @@ body.letter-reading {
     transition: opacity 160ms ease-out;
   }
 
-  .candle-flame {
-    transition: opacity 200ms, transform 200ms;
-  }
   .letter-reader[open] {
     animation: reader-enter 180ms ease-out;
   }

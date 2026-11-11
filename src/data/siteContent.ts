@@ -27,7 +27,14 @@ type SiteContent = {
   song: { title: string; src: string; playLabel: string; pauseLabel: string; errorMessage: string };
   gallery: { heading: string; openLabel: string; closeLabel: string; dialogLabel: string; unavailableLabel: string };
   memories: Memory[];
-  candle: { prompt: string; revealedWish: string; buttonLabel: string; hint: string; doneLabel: string };
+  candle: {
+    prompt: string; revealedWish: string; buttonLabel: string; hint: string; doneLabel: string;
+    readyLabel: string; fallbackLabel: string; cancelLabel: string;
+    requestingLabel: string; calibratingLabel: string; listeningLabel: string;
+    fallbackMessage: string; extinguishingLabel: string;
+    unsupportedMessage: string; deniedMessage: string; unavailableMessage: string; timeoutMessage: string;
+    pausedMusicMessage: string;
+  };
   finalHeading: string;
   replayLabel: string;
   finalMessage: string;
@@ -87,8 +94,21 @@ export const siteContent: SiteContent = {
   candle: {
     prompt: 'Make a wish',
     buttonLabel: 'Blow out the candle',
-    hint: 'Tap the flame',
-    doneLabel: 'A wish for you',
+    hint: 'Close your eyes, make a wish, and blow out the candle. \u2661',
+    doneLabel: 'Candle blown out. A wish for you.',
+    readyLabel: "I'm ready",
+    fallbackLabel: 'Tap to blow instead',
+    cancelLabel: 'Cancel listening',
+    requestingLabel: 'Waiting for microphone permission…',
+    calibratingLabel: 'Getting ready…',
+    listeningLabel: 'Blow gently toward your microphone…',
+    fallbackMessage: "We couldn't listen this time. You can tap to blow instead.",
+    unsupportedMessage: "Microphone listening isn't supported here. You can tap to blow instead.",
+    deniedMessage: 'Microphone access is off. You can tap to blow instead.',
+    unavailableMessage: "We couldn't access a microphone. You can tap to blow instead.",
+    timeoutMessage: "Let's try a tap instead. Your microphone is no longer in use.",
+    pausedMusicMessage: 'Your song was paused for your wish. Press play whenever you are ready.',
+    extinguishingLabel: 'The candle is going out…',
     revealedWish: 'I hope this year gives you so many reasons to smile.',
   },
   finalMessage: '',
