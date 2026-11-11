@@ -25,11 +25,17 @@ const { letter } = siteContent;
   <article class="reader-letter">
     <h1 id="letter-greeting">{letter.greeting}</h1>
     <div class="reader-paragraphs" data-letter-paragraphs>
-      {letter.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+      {letter.paragraphs.map((paragraph) => (
+        <p>{paragraph.split(/(\*\*.+?\*\*)/g).map((part) =>
+          part.startsWith('**') && part.endsWith('**')
+            ? <strong>{part.slice(2, -2)}</strong>
+            : part
+        )}</p>
+      ))}
     </div>
-    <footer class="reader-signature">
+    {(letter.signOff || siteContent.senderName) && <footer class="reader-signature">
       <p>{letter.signOff}<br /><span>{siteContent.senderName}</span></p>
-    </footer>
+    </footer>}
     <MemoryGallery />
     <CandleWish />
     <FinalMessage />

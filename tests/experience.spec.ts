@@ -1,11 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { Buffer } from 'node:buffer';
 import { platform } from 'node:process';
+import { siteContent } from '../src/data/siteContent';
 
 const scene = '[data-envelope-scene]';
 const paper = '[data-letter-preview]';
 const reader = '[data-letter-dialog]';
-const photo = '[data-photo-dialog]';
 
 async function lift(page: Page) {
   await page.locator('[data-envelope-open]').click();
@@ -51,7 +51,7 @@ test('sealed page, local assets, semantics and viewport', async ({ page, request
   await page.screenshot({ path: info.outputPath('lifted.png') });
 });
 
-test('two taps, nested photo, one-shot wish, close/reopen and replay twice', async ({ page, hasTouch }) => {
+test('two taps, one-shot wish, close/reopen and replay twice', async ({ page, hasTouch }) => {
   await page.goto('/');
   for (let cycle = 0; cycle < 2; cycle++) {
     const open = page.locator('[data-envelope-open]');
@@ -60,15 +60,6 @@ test('two taps, nested photo, one-shot wish, close/reopen and replay twice', asy
     await expect(page.locator(scene)).toHaveAttribute('data-stage', 'lifted');
     await expect(page.locator(reader)).not.toBeVisible();
     if (hasTouch) await page.locator(paper).tap(); else await page.locator(paper).click();
-    const thumbnail = page.locator('[data-memory-open]').first();
-    await thumbnail.scrollIntoViewIfNeeded();
-    await expect(thumbnail.locator('img')).toHaveAttribute('data-loaded', '');
-    await thumbnail.click();
-    await expect(page.locator(photo)).toBeVisible();
-    await expect(page.locator('[data-photo-image]')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.locator(photo)).not.toBeVisible();
-    await expect(thumbnail).toBeFocused();
     await expect(page.locator(reader)).toBeVisible();
     const candle = page.locator('[data-candle-trigger]');
     if (hasTouch) await candle.tap(); else await candle.click();
@@ -152,33 +143,27 @@ test('real reduced-motion emulation and mid-opening preference change', async ({
   await expect(page.locator(scene)).toHaveAttribute('data-stage', 'lifted');
 });
 
-test('missing photo falls back without gating the letter', async ({ page }) => {
-  await page.route('**/images/memory-1.svg', (route) => route.fulfill({ contentType: 'image/png', body: 'invalid image' }));
+test('Arshelle receives the full formatted letter without photos or placeholder copy', async ({ page }) => {
+  const imageRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'image' && request.url().includes('/images/')) imageRequests.push(request.url());
+  });
   await page.goto('/');
+  await expect(page).toHaveTitle('A letter for Arshelle');
+  await expect(page.locator('.envelope-label')).toHaveText('For Arshelle');
   await read(page);
-  const button = page.locator('[data-memory-open]').first();
-  await button.scrollIntoViewIfNeeded();
-  await expect(button).toBeDisabled();
-  await expect(button).toHaveAttribute('aria-label', /^Photo unavailable:/);
-  await expect(button.locator('[data-memory-fallback]')).toBeVisible();
-  await page.locator('[data-candle-trigger]').click();
-  await expect(page.locator('[data-candle-wish]')).not.toHaveText('');
-});
-
-test('slow images do not block reading or wish; recover when released', async ({ page }) => {
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  await page.route('**/images/**', async (route) => { await gate; await route.continue(); });
-  try {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await read(page);
-    await page.locator('[data-candle-trigger]').click();
-    await expect(page.locator('[data-candle-wish]')).not.toHaveText('');
-    release();
-    const image = page.locator('[data-memory-image]').first();
-    await image.scrollIntoViewIfNeeded();
-    await expect(image).toHaveAttribute('data-loaded', '');
-  } finally { release(); }
+  await expect(page.locator('#letter-greeting')).toHaveText('Happy Birthday, my love! ❤️');
+  await expect(page.locator('[data-letter-paragraphs] > p')).toHaveText(siteContent.letter.paragraphs.map((paragraph) => paragraph.replaceAll('**', '')));
+  await expect(page.locator('[data-letter-paragraphs] strong')).toHaveText([
+    'we get to grow old and ugly together HAHAHA.',
+    'I love you so much, always. ❤️',
+  ]);
+  await expect(page.locator(`${reader} img, [data-memory-open], [data-photo-dialog], .reader-signature`)).toHaveCount(0);
+  await expect(page.locator(reader)).not.toContainText('From Me');
+  await expect(page.locator(reader)).not.toContainText('One last thing');
+  await page.locator('[data-replay]').scrollIntoViewIfNeeded();
+  expect(imageRequests).toEqual([]);
+  expect(await page.locator(reader).evaluate((el) => el.scrollWidth === el.clientWidth)).toBeTruthy();
 });
 
 async function musicFixture(page: Page) {

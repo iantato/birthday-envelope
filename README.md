@@ -17,8 +17,10 @@ The raised-paper button opens a full-height native dialog containing the
 configured letter, sign-off, and sender name. Close with the sticky "Back to
 envelope" control or Escape; the envelope stays open and focus returns to the
 paper. Reopening preserves the reader's scroll position and revealed wish.
-The letter continues into captioned memories, a single candle, a final note,
-and "Open again" to reset the whole experience. Music is optional and opt-in.
+The letter is personalized for Arshelle with the supplied birthday message,
+followed by a single candle and "Open again" to reset the whole experience.
+Photos, the placeholder signature, and the extra placeholder final note are
+omitted. Music is optional and opt-in.
 
 ## Development
 
@@ -46,8 +48,8 @@ for a reproducible clean installation.
 ## Personalization
 
 Edit `src/data/siteContent.ts` for the page title, language, description, names,
-letter paragraphs, captions, image/audio paths, seal details, and wish. No real
-personal details or invented couple memories are included.
+letter paragraphs, captions, image/audio paths, seal details, and wish. The
+current configuration contains Arshelle's name and the supplied personal letter.
 
 Base design tokens are in `src/styles/global.css`. Override them through the
 config's `theme` object, for example `theme: { '--bg': '#f6f6f6' }`. Envelope
@@ -60,10 +62,13 @@ are the status text beneath the envelope. The paper preview uses the letter
 greeting and three decorative lines, never the entire letter.
 
 Edit `letter.paragraphs` to supply the full letter, one string per paragraph.
-Text is escaped normally; HTML is not interpreted. Newlines inside a paragraph
+Text is escaped normally; HTML is not interpreted. Paired `**bold text**` markers
+render as accessible strong emphasis. Newlines inside a paragraph
 are preserved. `letter.signOff`, `senderName`, and `letter.closeLabel` control
 the closing signature and reader close button. The same `envelope.paperColor`
-is used for the preview and expanded reading surface.
+is used for the preview and expanded reading surface. Leaving both signature
+fields empty omits the signature; empty final heading/message fields omit that
+copy while keeping replay available.
 
 Place photos in `public/images/` and use paths like `/images/photo-1.webp` in
 the config. Three original neutral SVG placeholders are included. Replace
@@ -87,17 +92,15 @@ replay. `finalHeading`, `finalMessage`, and `replayLabel` control the last secti
 
 ### Phase 6 Personalization Status
 
-The typography, controls, headings, captions, and accessible names have been
-audited without inventing names, memories, or a physical envelope design.
-Personalization is still pending because only the original local placeholders
-have been supplied. Before the site is gift-ready:
+Arshelle's name and the full supplied letter are configured, preserving the
+original wording, heart emojis, and bold emphasis. `memories: []` removes the
+entire photo section and enlargement dialog without requesting any photo assets.
+No photos are needed for this version. The unsupplied sender signature and
+extra placeholder final note are omitted; the candle and replay remain.
+Before the site is gift-ready:
 
-- Replace the name placeholders, letter paragraphs, sign-off, wish, and final
-  note in `src/data/siteContent.ts` with the intended personal message.
-- Put 3-5 permitted photos in `public/images/` and update every path, caption,
-  and descriptive alt text. Keep the neutral SVGs until actual photos are ready.
-- Set `envelope.label` to the exact wording on the real envelope. The reserved
-  `recipientName` field does not automatically replace that visible label.
+- The envelope currently reads "For Arshelle". Adjust it if the real envelope
+  uses different wording. `recipientName` does not automatically replace that label.
 - Supply a photo or description of the real envelope before changing paper
   color, label position, flap geometry, or sticker to match it. Color/sticker
   settings are in the content config; placement and folds are in
@@ -105,8 +108,8 @@ have been supplied. Before the site is gift-ready:
 - Supply a licensed song only if desired; leaving `song.src` empty is complete
   supported behavior, not a missing requirement.
 
-The two asset-dependent Phase 6 checklist items in `../PLAN.md` remain open.
-Do not remove placeholders or mark those items complete without the real inputs.
+The content-personalization item in `../PLAN.md` is complete. Physical-envelope
+matching remains open until a photo or description is supplied.
 
 Polish includes balanced headings, improved paragraph/caption wrapping, restrained
 photo hover/press feedback, a safe-area-aware sticky photo close control, and
@@ -225,12 +228,16 @@ The configuration is `playwright.config.ts`; tests are in
 `tests/experience.spec.ts`. Seven projects cover Chromium at 320, 375, 390,
 768, and 1280px, a touch-enabled mobile Chromium context, and mobile-sized
 WebKit. Each project tests the sealed view and local assets, two deliberate
-taps, repeated input, nested photo Escape/focus return, the one-shot candle,
+taps, repeated input, personalized text and emphasis, absence of photos, the one-shot candle,
 close/reopen, replay twice, keyboard focus, a 1,000-word letter, page scroll
 restoration, native browser reduced-motion emulation and mid-opening preference
-changes, broken photos, delayed image loading, and audio error/reset behavior.
+changes, and audio error/reset behavior. Gallery-specific tests were replaced
+with the photo-free personalization regression test for this version.
 
-The final run completed with **62 passed, 1 skipped, 0 failed**. The skipped
+The post-personalization run completed with **55 passed, 1 skipped, 0 failed**.
+This includes the full configured letter, both bold passages, Arshelle's envelope
+label, no rendered photos or photo requests, and no placeholder signature/final note.
+The skipped
 case is real WAV playback in Windows WebKit, which returned
 `MEDIA_ERR_SRC_NOT_SUPPORTED` for the generated silent fixture despite reporting
 WAV capability. Chromium play/pause/no-autoplay/rewind checks passed; WebKit
@@ -250,7 +257,7 @@ npx playwright show-report
 These checks validate a local, deployable application, not a completed gift or
 public deployment. Remaining release checks are:
 
-- Complete the two outstanding Phase 6 personalization tasks using real inputs.
+- Complete the outstanding Phase 6 physical-envelope matching task using real inputs.
 - Test on a physical iPhone/iOS Safari, including safe areas, touch scrolling,
   OS reduced motion, and the actual licensed audio file if music is configured.
 - Test the final deployed HTTPS URL over cellular data and check the printed

@@ -2,8 +2,8 @@
 import { siteContent } from '../data/siteContent';
 ---
 
-<section class="reader-section final-section" aria-labelledby="final-heading">
-  <h2 id="final-heading">{siteContent.finalHeading}</h2>
-  <p>{siteContent.finalMessage}</p>
+<section class="reader-section final-section" aria-labelledby={siteContent.finalHeading ? 'final-heading' : undefined} aria-label={siteContent.finalHeading ? undefined : siteContent.replayLabel}>
+  {siteContent.finalHeading && <h2 id="final-heading">{siteContent.finalHeading}</h2>}
+  {siteContent.finalMessage && <p>{siteContent.finalMessage}</p>}
   <button class="text-control" type="button" data-replay>{siteContent.replayLabel}<span aria-hidden="true"> &#8634;</span></button>
 </section>
