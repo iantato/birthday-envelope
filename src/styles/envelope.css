@@ -151,19 +151,6 @@
   transition: none;
 }
 
-.envelope-label {
-  position: absolute;
-  z-index: 4;
-  inset: 75% 12% auto;
-  text-align: center;
-  font-size: clamp(12px, 2.8vw, 14px);
-  font-weight: 400;
-  letter-spacing: 0.025em;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-  pointer-events: none;
-}
-
 .envelope-seal {
   position: absolute;
   z-index: 4;

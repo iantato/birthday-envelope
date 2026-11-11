@@ -12,7 +12,6 @@ type SiteContent = {
   senderName: string;
   theme: Record<`--${string}`, string>;
   envelope: {
-    label: string;
     openLabel: string;
     hint: string;
     openingHint: string;
@@ -50,7 +49,6 @@ export const siteContent: SiteContent = {
   // Optional CSS variable overrides; defaults live in styles/global.css.
   theme: {},
   envelope: {
-    label: 'For Arshelle',
     openLabel: 'Open envelope',
     hint: 'Tap to open',
     openingHint: 'A little something for you',

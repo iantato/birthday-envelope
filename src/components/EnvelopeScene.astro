@@ -52,7 +52,6 @@ const { envelope } = siteContent;
         <path class="envelope-seam" d="m0 0 244 182q6 5 12 0L500 0" />
       </svg>
 
-      {envelope.label && <span class="envelope-label" aria-hidden="true">{envelope.label}</span>}
       {envelope.sealEnabled && (
         <span class="envelope-seal" aria-hidden="true">{envelope.sealText}</span>
       )}
