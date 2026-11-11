@@ -15,8 +15,6 @@ function bindExperience() {
 
   const events = new AbortController();
   const audio = document.querySelector<HTMLAudioElement>('[data-audio]');
-  const music = document.querySelector<HTMLButtonElement>('[data-music-toggle]');
-  const musicStatus = document.querySelector<HTMLElement>('[data-music-status]');
   const photo = document.querySelector<HTMLDialogElement>('[data-photo-dialog]');
   const photoImage = document.querySelector<HTMLImageElement>('[data-photo-image]');
   const photoFallback = document.querySelector<HTMLElement>('[data-photo-fallback]');
@@ -37,10 +35,10 @@ function bindExperience() {
   let photoTrigger: HTMLButtonElement | undefined;
   let candleState: CandleState = 'idle';
   let candleFinish: ReturnType<typeof setTimeout> | undefined;
-  let wantsMusic = false;
+  let wantsMusic = true;
   let musicRequest = 0;
+  let musicPending = false;
   let microphoneCleanup: Promise<void> | undefined;
-  let pausedMusicForCandle = false;
   const detector = createBlowDetector({
     onState: (state) => updateCandle(state === 'calibrating' ? 'allowed' : 'calibrated'),
     onLevel: (level) => candleSection?.style.setProperty('--blow-level', String(level)),
@@ -52,67 +50,39 @@ function bindExperience() {
     return candleState === 'requesting-permission' || candleState === 'calibrating' || candleState === 'listening';
   }
 
-  function syncMusic() {
-    if (!music || !audio) return;
-    const playing = !audio.paused && !audio.ended;
-    const label = (playing ? music.dataset.pauseLabel : music.dataset.playLabel) ?? '';
-    music.textContent = label;
-    music.setAttribute('aria-label', label);
-    music.setAttribute('aria-pressed', String(playing));
-    music.disabled = microphoneActive() || Boolean(microphoneCleanup) || music.hasAttribute('aria-busy');
-  }
-
-  function stopMusic() {
-    wantsMusic = false;
+  function pauseMusic() {
     musicRequest++;
+    musicPending = false;
     audio?.pause();
-    if (music) {
-      music.disabled = false;
-      music.removeAttribute('aria-busy');
-    }
-    syncMusic();
   }
 
-  if (audio && music) {
-    music.addEventListener('click', async () => {
-      if (microphoneActive() || microphoneCleanup) return;
-      if (wantsMusic || !audio.paused) {
-        stopMusic();
-        return;
-      }
-      wantsMusic = true;
-      const request = ++musicRequest;
-      music.disabled = true;
-      music.setAttribute('aria-busy', 'true');
-      if (musicStatus) musicStatus.textContent = '';
-      try {
-        // Only this direct click handler may start playback.
-        await audio.play();
-        if (!wantsMusic || request !== musicRequest || microphoneActive() || microphoneCleanup) audio.pause();
-      } catch {
-        if (request === musicRequest) {
-          wantsMusic = false;
-          if (musicStatus) musicStatus.textContent = music.dataset.errorMessage ?? '';
-        }
-      } finally {
-        if (request === musicRequest) {
-          music.disabled = false;
-          music.removeAttribute('aria-busy');
-          syncMusic();
-        }
-      }
-    }, { signal: events.signal });
-    for (const event of ['play', 'pause', 'ended']) {
-      audio.addEventListener(event, () => {
-        if (event === 'play' && (microphoneActive() || microphoneCleanup)) audio.pause();
-        if (audio.paused || audio.ended) wantsMusic = false;
-        syncMusic();
-      }, { signal: events.signal });
+  async function startMusic() {
+    if (!audio || !wantsMusic || document.hidden || microphoneActive() || microphoneCleanup || musicPending || !audio.paused) return;
+    const request = ++musicRequest;
+    musicPending = true;
+    try {
+      await audio.play();
+      if (!wantsMusic || microphoneActive() || microphoneCleanup) audio.pause();
+    } catch {
+      // Audible autoplay may be blocked; retry from the next user interaction.
+    } finally {
+      if (request === musicRequest) musicPending = false;
     }
-    audio.addEventListener('error', () => {
-      stopMusic();
-      if (musicStatus) musicStatus.textContent = music.dataset.errorMessage ?? '';
+  }
+
+  if (audio) {
+    audio.volume = 0.1;
+    audio.addEventListener('play', () => {
+      if (!wantsMusic || microphoneActive() || microphoneCleanup) audio.pause();
     }, { signal: events.signal });
+    audio.addEventListener('error', () => {
+      wantsMusic = false;
+      pauseMusic();
+    }, { signal: events.signal });
+    for (const event of ['click', 'keydown']) {
+      document.addEventListener(event, () => { void startMusic(); }, { signal: events.signal });
+    }
+    void startMusic();
   }
 
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-memory-open]')) {
@@ -172,12 +142,8 @@ function bindExperience() {
       void cleanup.then(() => {
         if (microphoneCleanup !== cleanup) return;
         microphoneCleanup = undefined;
-        if (pausedMusicForCandle && musicStatus && !microphoneActive() && event !== 'reset') {
-          musicStatus.textContent = siteContent.candle.pausedMusicMessage;
-        }
-        pausedMusicForCandle = false;
         if (candleReady) candleReady.disabled = candleState !== 'idle';
-        syncMusic();
+        void startMusic();
       });
       candleSection?.style.removeProperty('--blow-level');
     }
@@ -219,7 +185,6 @@ function bindExperience() {
       unavailable: copy.unavailableMessage, timeout: copy.timeoutMessage, error: copy.fallbackMessage,
     };
     if (candleStatus) candleStatus.textContent = failure ? failures[failure] : statuses[next];
-    syncMusic();
     if (next === 'extinguishing') {
       const style = candle ? getComputedStyle(candle) : undefined;
       const duration = (property: string) => {
@@ -244,9 +209,7 @@ function bindExperience() {
   candleReady?.addEventListener('click', () => {
     if (stage !== 'reading' || candleState !== 'idle') return;
     updateCandle('ready');
-    pausedMusicForCandle = wantsMusic || Boolean(audio && !audio.paused && !audio.ended);
-    stopMusic();
-    if (musicStatus) musicStatus.textContent = '';
+    pauseMusic();
     void detector.start();
     // The primary action is disabled while listening; keep keyboard focus usable.
     (microphoneActive() ? candleCancel : candleFallback)?.focus({ preventScroll: true });
@@ -264,6 +227,7 @@ function bindExperience() {
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) updateCandle('cancel');
+    else void startMusic();
   }, { signal: events.signal });
   window.addEventListener('pagehide', () => updateCandle('cancel'), { signal: events.signal });
   const candleVisibility = new IntersectionObserver((entries) => {
@@ -369,10 +333,6 @@ function bindExperience() {
 
   function resetExperience(restoreFocus = true) {
     clearTimeout(fallback);
-    stopMusic();
-    pausedMusicForCandle = false;
-    if (audio) audio.currentTime = 0;
-    if (musicStatus) musicStatus.textContent = '';
     photoTrigger = undefined;
     if (photo?.open) photo.close();
     if (reader!.open) reader!.close();
@@ -389,6 +349,8 @@ function bindExperience() {
 
   setStage('sealed');
   return () => {
+    wantsMusic = false;
+    pauseMusic();
     candleVisibility.disconnect();
     events.abort();
     resetExperience(false);

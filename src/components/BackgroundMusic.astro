@@ -1,0 +1,8 @@
+---
+import { siteContent } from '../data/siteContent';
+const { song } = siteContent;
+---
+
+{song.src.trim() && (
+  <audio data-audio src={song.src} autoplay preload="auto" loop hidden></audio>
+)}

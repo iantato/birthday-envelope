@@ -23,7 +23,7 @@ type SiteContent = {
     paperColor: string;
   };
   letter: { greeting: string; paragraphs: string[]; signOff: string; closeLabel: string };
-  song: { title: string; src: string; playLabel: string; pauseLabel: string; errorMessage: string };
+  song: { src: string };
   gallery: { heading: string; openLabel: string; closeLabel: string; dialogLabel: string; unavailableLabel: string };
   memories: Memory[];
   candle: {
@@ -32,7 +32,6 @@ type SiteContent = {
     requestingLabel: string; calibratingLabel: string; listeningLabel: string;
     fallbackMessage: string; extinguishingLabel: string;
     unsupportedMessage: string; deniedMessage: string; unavailableMessage: string; timeoutMessage: string;
-    pausedMusicMessage: string;
   };
   finalHeading: string;
   replayLabel: string;
@@ -75,11 +74,7 @@ export const siteContent: SiteContent = {
     signOff: 'Love,',
   },
   song: {
-    title: 'Our song',
-    src: '', // Add /audio/our-song.mp3 only after supplying a licensed file.
-    playLabel: 'Play our song',
-    pauseLabel: 'Pause our song',
-    errorMessage: 'The song could not be played. You can try again or keep reading.',
+    src: '/audio/saksi-ang-langit-piano.mp3',
   },
   gallery: {
     heading: 'A few moments I love',
@@ -105,7 +100,6 @@ export const siteContent: SiteContent = {
     deniedMessage: 'Microphone access is off. You can tap to blow instead.',
     unavailableMessage: "We couldn't access a microphone. You can tap to blow instead.",
     timeoutMessage: "Let's try a tap instead. Your microphone is no longer in use.",
-    pausedMusicMessage: 'Your song was paused for your wish. Press play whenever you are ready.',
     extinguishingLabel: 'The candle is going out…',
     revealedWish: 'I hope this year gives you so many reasons to smile.',
   },

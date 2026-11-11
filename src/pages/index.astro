@@ -2,6 +2,7 @@
 import { siteContent } from '../data/siteContent';
 import EnvelopeScene from '../components/EnvelopeScene.astro';
 import LetterReader from '../components/LetterReader.astro';
+import BackgroundMusic from '../components/BackgroundMusic.astro';
 import '../styles/global.css';
 ---
 
@@ -11,6 +12,7 @@ import '../styles/global.css';
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link rel="preload" href={siteContent.song.src} as="audio" type="audio/mpeg" />
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500&display=swap" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="generator" content={Astro.generator} />
@@ -19,6 +21,7 @@ import '../styles/global.css';
 		<title>{siteContent.pageTitle}</title>
 	</head>
 	<body>
+		<BackgroundMusic />
 		<main>
 			<EnvelopeScene />
 			<LetterReader />

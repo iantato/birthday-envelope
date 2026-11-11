@@ -51,7 +51,12 @@ test('sealed page, local assets, semantics and viewport', async ({ page, request
   await expect(page.locator(scene)).toHaveAttribute('data-stage', 'sealed');
   await expect(page.locator(paper)).toBeDisabled();
   await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(page.locator('[data-audio], [data-music-toggle]')).toHaveCount(0);
+  await expect(page.locator('audio[data-audio]')).toHaveCount(1);
+  await expect(page.locator('audio[data-audio]')).toBeHidden();
+  expect(await page.locator('audio[data-audio]').evaluate((el: HTMLAudioElement) => ({
+    src: new URL(el.src).pathname, preload: el.preload, loop: el.loop, controls: el.controls,
+    outsideDialog: !el.closest('dialog'),
+  }))).toEqual({ src: '/audio/saksi-ang-langit-piano.mp3', preload: 'auto', loop: true, controls: false, outsideDialog: true });
   for (const asset of ['/favicon.svg', '/images/memory-1.svg', '/images/memory-2.svg', '/images/memory-3.svg']) {
     expect((await request.get(asset)).ok()).toBeTruthy();
   }
@@ -364,7 +369,7 @@ test('Arshelle receives the full formatted letter without photos or placeholder 
   });
   await page.goto('/');
   await expect(page).toHaveTitle('A letter for Arshelle');
-  await expect(page.locator('.envelope-label')).toHaveText('For Arshelle');
+  await expect(page.locator('.envelope-label')).toHaveCount(0);
   await read(page);
   await expect(page.locator('#letter-greeting')).toHaveText('Happy Birthday, my love! ❤️');
   await expect(page.locator('[data-letter-paragraphs] > p')).toHaveText(siteContent.letter.paragraphs.map((paragraph) => paragraph.replaceAll('**', '')));
@@ -383,13 +388,10 @@ test('Arshelle receives the full formatted letter without photos or placeholder 
 });
 
 async function musicFixture(page: Page, populated = false) {
-  // Inject the optional markup before the production controller binds; never edit personal config.
+  // Point the production audio element at a deterministic generated WAV.
   await page.route('http://127.0.0.1:4330/', async (route) => {
     const response = await route.fetch();
-    let html = (await response.text()).replace('</header>', `<div class="music-control">
-      <audio data-audio src="/test-tone.wav" preload="none"></audio>
-      <button type="button" data-music-toggle data-play-label="Play our song" data-pause-label="Pause our song" data-error-message="Playback unavailable" aria-pressed="false">Play our song</button>
-      <span data-music-status role="status"></span></div></header>`);
+    let html = (await response.text()).replaceAll('/audio/saksi-ang-langit-piano.mp3', '/test-tone.wav');
     if (populated) {
       // Exercise optional controller markup without changing the real personal content.
       const gallery = `<section class="reader-section" aria-labelledby="memories-heading">
@@ -512,170 +514,150 @@ test('photo opening and Replay cancel microphone use without re-requesting on re
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'idle');
 });
 
-test('Replay preserves pending microphone teardown before music can resume', async ({ page }) => {
+test('background audio binds immediately, retries blocked autoplay, and survives letter close and Replay', async ({ page }) => {
   await musicFixture(page);
+  await page.addInitScript(() => {
+    let attempts = 0;
+    let paused = true;
+    let time = 0;
+    // Mock playback independently of the host's installed media codecs.
+    document.addEventListener('error', (event) => {
+      if (event.target instanceof HTMLMediaElement) event.stopImmediatePropagation();
+    }, true);
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', { get: () => paused });
+    Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', { get: () => time, set: (value: number) => { time = value; } });
+    HTMLMediaElement.prototype.play = function () {
+      document.documentElement.dataset.songPlays = String(++attempts);
+      document.documentElement.dataset.songVolume = String(this.volume);
+      if (attempts <= 2) return Promise.reject(new DOMException('Autoplay blocked', 'NotAllowedError'));
+      paused = false;
+      this.dispatchEvent(new Event('play'));
+      return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function () { paused = true; };
+  });
   await page.goto('/');
+  const audio = page.locator('audio[data-audio]');
+  await expect(audio).toHaveCount(1);
+  await expect(audio).toBeHidden();
+  await expect(page.locator('link[rel="preload"][as="audio"]')).toHaveAttribute('href', '/test-tone.wav');
+  expect(await audio.evaluate((el: HTMLAudioElement) => ({
+    outsideDialog: !el.closest('dialog'), src: new URL(el.src).pathname,
+    preload: el.preload, autoplay: el.autoplay, loop: el.loop, controls: el.controls,
+    volume: el.volume,
+  }))).toEqual({ outsideDialog: true, src: '/test-tone.wav', preload: 'auto', autoplay: true, loop: true, controls: false, volume: 0.1 });
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
+  await expect(page.locator('html')).toHaveAttribute('data-song-volume', '0.1');
+  await expect(page.locator('[data-music-toggle], [data-music-status], audio[controls]')).toHaveCount(0);
+  await page.mouse.click(5, 5);
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '2');
+  await page.keyboard.press('x');
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '3');
+  await expect(audio).toHaveJSProperty('paused', false);
+  await read(page);
+  await page.locator('[data-letter-close]').click();
+  await expect(audio).toHaveJSProperty('loop', true);
+  await page.locator(paper).click();
+  await audio.evaluate((el: HTMLAudioElement) => { el.currentTime = 2; });
+  await page.locator('[data-replay]').click();
+  await expect(page.locator(scene)).toHaveAttribute('data-stage', 'sealed');
+  expect(await audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBe(2);
+  await expect(audio).toHaveJSProperty('paused', false);
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '3');
+});
+
+test('supplied MP3 loads and plays at low volume without controls', async ({ page, request, browserName }) => {
+  test.skip(browserName === 'webkit' && platform === 'win32', 'Verify MP3 playback on real Safari; Windows WebKit media codecs differ.');
+  const response = await request.get(siteContent.song.src);
+  expect(response.ok()).toBeTruthy();
+  expect(response.headers()['content-type']).toContain('audio/mpeg');
+  expect((await response.body()).byteLength).toBeGreaterThan(44);
+  await page.goto('/');
+  const audio = page.locator('[data-audio]');
+  await page.mouse.click(5, 5);
+  await expect(audio).toHaveJSProperty('paused', false);
+  await expect(audio).toHaveJSProperty('volume', 0.1);
+  await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(0);
+  expect(await audio.evaluate((el: HTMLAudioElement) => el.duration)).toBeGreaterThan(0);
+});
+
+test('music pauses before microphone access and resumes only after teardown across Replay', async ({ page }) => {
+  await musicFixture(page);
+  await page.addInitScript(() => {
+    document.addEventListener('error', (event) => {
+      if (event.target instanceof HTMLMediaElement) event.stopImmediatePropagation();
+    }, true);
+    HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+  });
+  await page.goto('/');
+  const audio = page.locator('[data-audio]');
   await read(page);
   await page.evaluate(() => {
-    const audio = document.querySelector<HTMLAudioElement>('[data-audio]')!;
-    let playing = false;
-    let plays = 0;
-    Object.defineProperty(audio, 'paused', { get: () => !playing });
-    audio.play = async () => {
-      playing = true;
-      document.documentElement.dataset.songPlays = String(++plays);
-      audio.dispatchEvent(new Event('play'));
-    };
-    audio.pause = () => { playing = false; audio.dispatchEvent(new Event('pause')); };
+    const el = document.querySelector<HTMLAudioElement>('[data-audio]')!;
+    let paused = false;
+    Object.defineProperty(el, 'paused', { configurable: true, get: () => paused });
+    el.play = () => { paused = false; return Promise.resolve(); };
+    el.pause = () => { paused = true; };
     Object.defineProperty(window, 'AudioContext', { configurable: true, value: class extends EventTarget {
       state = 'running';
       resume() { return Promise.resolve(); }
-      close() {
-        this.state = 'closed';
-        return new Promise<void>((resolve) => document.addEventListener('finish-integration-close', () => resolve(), { once: true }));
-      }
+      close() { this.state = 'closed'; return new Promise<void>((resolve) => {
+        document.addEventListener('finish-music-close', () => resolve(), { once: true });
+      }); }
     } });
-    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: () => new Promise(() => {}) } });
-  });
-  const music = page.locator('[data-music-toggle]');
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('[data-candle-ready]').click();
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
-  await page.locator('[data-candle-cancel]').click();
-  await expect(music).toBeDisabled();
-  await page.locator('[data-replay]').click();
-  await read(page);
-  await expect(music).toBeDisabled();
-  await expect(page.locator('[data-candle-ready]')).toBeDisabled();
-  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
-  await page.evaluate(() => document.dispatchEvent(new Event('finish-integration-close')));
-  await expect(music).toBeEnabled();
-  await expect(page.locator('[data-candle-ready]')).toBeEnabled();
-  await expect(page.locator('[data-music-status]')).toHaveText('');
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '2');
-});
-
-test('optional audio fixture: no autoplay, play/pause, replay and rejection', async ({ page, browserName }) => {
-  test.skip(browserName === 'webkit' && platform === 'win32', 'Windows WebKit reports MEDIA_ERR_SRC_NOT_SUPPORTED for the generated WAV; test real audio on Safari.');
-  const requests = await musicFixture(page);
-  await page.goto('/');
-  await read(page);
-  expect(requests()).toBe(0);
-  const music = page.locator('[data-music-toggle]');
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'true');
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('[data-replay]').click();
-  expect(await page.locator('audio').evaluate((audio: HTMLAudioElement) => audio.paused && audio.currentTime === 0)).toBeTruthy();
-  await read(page);
-  await page.locator('audio').evaluate((audio: HTMLAudioElement) => { audio.play = () => Promise.reject(new DOMException('Test denial', 'NotAllowedError')); });
-  await music.click();
-  await expect(page.locator('[data-music-status]')).toHaveText('Playback unavailable');
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
-  await expect(music).toBeEnabled();
-});
-
-test('audio rejection and pending playback reset are safe', async ({ page }) => {
-  await musicFixture(page);
-  await page.goto('/');
-  await read(page);
-  const audio = page.locator('[data-audio]');
-  const music = page.locator('[data-music-toggle]');
-  await audio.evaluate((el: HTMLAudioElement) => { el.play = () => Promise.reject(new DOMException('Test denial', 'NotAllowedError')); });
-  await music.click();
-  await expect(page.locator('[data-music-status]')).toHaveText('Playback unavailable');
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
-  await audio.evaluate((el: HTMLAudioElement) => {
-    el.play = () => new Promise<void>((resolve) => {
-      el.addEventListener('resolve-test-play', () => resolve(), { once: true });
-    });
-  });
-  await music.click();
-  await expect(music).toBeDisabled();
-  await page.locator('[data-replay]').click();
-  await audio.dispatchEvent('resolve-test-play');
-  await expect(music).toBeEnabled();
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator(scene)).toHaveAttribute('data-stage', 'sealed');
-  expect(await audio.evaluate((el: HTMLAudioElement) => el.paused)).toBeTruthy();
-});
-
-test('microphone pauses optional music and leaves resuming to the visitor', async ({ page, browserName }) => {
-  test.skip(browserName === 'webkit' && platform === 'win32', 'Windows WebKit cannot play the generated WAV fixture.');
-  await musicFixture(page);
-  await page.goto('/');
-  await read(page);
-  const music = page.locator('[data-music-toggle]');
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'true');
-  const audio = page.locator('[data-audio]');
-  await expect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime)).toBeGreaterThan(0.05);
-  const originalTime = await audio.evaluate((element: HTMLAudioElement) => element.currentTime);
-  await page.evaluate(() => {
-    navigator.mediaDevices.getUserMedia = () => {
-      if (!document.querySelector<HTMLAudioElement>('[data-audio]')!.paused) {
-        throw new Error('Music must pause before requesting the microphone');
-      }
-      return new Promise((_resolve, reject) => {
-        document.addEventListener('deny-test-microphone', () => reject(new DOMException('Test denial', 'NotAllowedError')), { once: true });
-      });
-    };
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
+      getUserMedia: () => {
+        if (!paused) throw new Error('Audio must pause before microphone request');
+        return new Promise(() => {});
+      },
+    } });
   });
   await page.locator('[data-candle-ready]').click();
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'requesting-permission');
-  await expect(music).toBeDisabled();
-  expect(await page.locator('[data-audio]').evaluate((el: HTMLAudioElement) => el.paused)).toBeTruthy();
-  const pausedTime = await audio.evaluate((element: HTMLAudioElement) => element.currentTime);
-  expect(pausedTime).toBeGreaterThanOrEqual(originalTime);
-  await page.evaluate(() => document.dispatchEvent(new Event('deny-test-microphone')));
-  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'fallback-ready');
-  await expect(music).toBeEnabled();
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('[data-music-status]')).toHaveText(siteContent.candle.pausedMusicMessage);
-  expect(await audio.evaluate((element: HTMLAudioElement) => element.currentTime)).toBe(pausedTime);
-  await music.click();
-  await expect(music).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime)).toBeGreaterThan(pausedTime);
+  expect(await audio.evaluate((el: HTMLAudioElement) => el.paused)).toBeTruthy();
+  await page.locator('[data-candle-cancel]').click();
+  await page.locator('[data-replay]').click();
+  await read(page);
+  await expect(audio).toHaveJSProperty('paused', true);
+  await page.evaluate(() => document.dispatchEvent(new Event('finish-music-close')));
+  await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.paused)).toBeFalsy();
 });
 
-test('pending music cannot restart during microphone permission and never autoplays afterward', async ({ page }) => {
-  await musicFixture(page);
+test('pending play cannot restart music during microphone use', async ({ page }) => {
+  await page.addInitScript(() => {
+    let paused = true;
+    let attempts = 0;
+    document.addEventListener('error', (event) => {
+      if (event.target instanceof HTMLMediaElement) event.stopImmediatePropagation();
+    }, true);
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', { get: () => paused });
+    HTMLMediaElement.prototype.play = function () {
+      document.documentElement.dataset.songPlays = String(++attempts);
+      return new Promise<void>((resolve) => document.addEventListener('resolve-late-play', () => {
+        paused = false;
+        this.dispatchEvent(new Event('play'));
+        resolve();
+      }, { once: true }));
+    };
+    HTMLMediaElement.prototype.pause = function () { paused = true; };
+  });
   await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
   await read(page);
   await permissionAudioContext(page);
   await page.evaluate(() => {
-    const audio = document.querySelector<HTMLAudioElement>('[data-audio]')!;
-    audio.play = () => new Promise<void>((resolve) => {
-      document.addEventListener('resolve-pending-song', () => resolve(), { once: true });
-    });
-    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
-      getUserMedia: () => new Promise(() => {}),
-    } });
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: () => new Promise(() => {}) } });
   });
-  const music = page.locator('[data-music-toggle]');
-  await music.click();
-  await expect(music).toBeDisabled();
   await page.locator('[data-candle-ready]').click();
-  await page.evaluate(() => document.dispatchEvent(new Event('resolve-pending-song')));
-  await expect(music).toBeDisabled();
-  await expect(music).toHaveAttribute('aria-pressed', 'false');
+  await page.evaluate(() => document.dispatchEvent(new Event('resolve-late-play')));
+  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'requesting-permission');
+  await expect(page.locator('[data-audio]')).toHaveJSProperty('paused', true);
+  await page.keyboard.press('x');
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
   await page.locator('[data-candle-cancel]').click();
-  await expect(music).toBeEnabled();
-  expect(await page.locator('[data-audio]').evaluate((el: HTMLAudioElement) => el.paused)).toBeTruthy();
-  await page.locator('[data-replay]').click();
-  await read(page);
-  // A visitor who never started playback must not receive a resume prompt or autoplay.
-  await page.locator('[data-candle-ready]').click();
-  await page.locator('[data-candle-cancel]').click();
-  await expect(music).toBeEnabled();
-  await expect(page.locator('[data-music-status]')).toHaveText('');
-  expect(await page.locator('[data-audio]').evaluate((el: HTMLAudioElement) => el.paused)).toBeTruthy();
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '2');
+  await page.evaluate(() => document.dispatchEvent(new Event('resolve-late-play')));
+  await expect(page.locator('[data-audio]')).toHaveJSProperty('paused', false);
 });
 
 test('native Web Audio analyser detects a sustained synthetic input without hardware access', async ({ page }) => {
