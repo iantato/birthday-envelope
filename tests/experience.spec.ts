@@ -570,7 +570,7 @@ test('background audio binds immediately, retries blocked autoplay, and survives
   await expect(page.locator('html')).toHaveAttribute('data-song-plays', '3');
 });
 
-test('supplied MP3 loads and plays at low volume without controls', async ({ page, request, browserName }) => {
+test('supplied MP3 starts audibly without a silent lead-in and plays at low volume', async ({ page, request, browserName }) => {
   test.skip(browserName === 'webkit' && platform === 'win32', 'Verify MP3 playback on real Safari; Windows WebKit media codecs differ.');
   const response = await request.get(siteContent.song.src);
   expect(response.ok()).toBeTruthy();
@@ -583,6 +583,27 @@ test('supplied MP3 loads and plays at low volume without controls', async ({ pag
   await expect(audio).toHaveJSProperty('volume', 0.1);
   await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(0);
   expect(await audio.evaluate((el: HTMLAudioElement) => el.duration)).toBeGreaterThan(0);
+  const firstAudibleMs = await page.evaluate(async (src) => {
+    const context = new AudioContext();
+    try {
+      const response = await fetch(src);
+      const decoded = await context.decodeAudioData(await response.arrayBuffer());
+      let first = Infinity;
+      for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
+        const samples = decoded.getChannelData(channel);
+        for (let frame = 0; frame < Math.min(samples.length, decoded.sampleRate * 0.15); frame++) {
+          if (Math.abs(samples[frame]!) > 0.003) {
+            first = Math.min(first, frame / decoded.sampleRate * 1000);
+            break;
+          }
+        }
+      }
+      return first;
+    } finally {
+      await context.close();
+    }
+  }, siteContent.song.src);
+  expect(firstAudibleMs).toBeLessThan(150);
 });
 
 test('microphone access and delayed teardown do not pause or rewind music across Replay', async ({ page }) => {
