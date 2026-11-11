@@ -1,6 +1,10 @@
 :root {
   color-scheme: light;
   --bg: #f6f6f6;
+  --bg-gradient:
+    radial-gradient(ellipse at 15% 15%, rgb(207 175 177 / 0.18), transparent 65%),
+    radial-gradient(ellipse at 85% 85%, rgb(234 216 191 / 0.2), transparent 65%),
+    linear-gradient(135deg, var(--bg), #f8f4f1);
   --paper: #fff;
   --envelope-back: #f0f1f2;
   --envelope-face: #fafbfb;
@@ -15,6 +19,7 @@
   line-height: 1.7;
   color: var(--ink);
   background: var(--bg);
+  background-image: var(--bg-gradient);
   -webkit-text-size-adjust: 100%;
 }
 

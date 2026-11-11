@@ -32,6 +32,7 @@ body.letter-reading {
 
 .letter-reader::backdrop {
   background: var(--bg);
+  background-image: var(--bg-gradient);
   opacity: .96;
 }
 
