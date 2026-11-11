@@ -38,9 +38,13 @@ function bindExperience() {
   let wantsMusic = true;
   let musicRequest = 0;
   let musicPending = false;
+  let musicBlocked = false;
   let microphoneCleanup: Promise<void> | undefined;
   const detector = createBlowDetector({
-    onState: (state) => updateCandle(state === 'calibrating' ? 'allowed' : 'calibrated'),
+    onState: (state) => {
+      updateCandle(state === 'calibrating' ? 'allowed' : 'calibrated');
+      void startMusic();
+    },
     onLevel: (level) => candleSection?.style.setProperty('--blow-level', String(level)),
     onBlow: () => updateCandle('blow'),
     onError: (reason) => updateCandle(reason === 'timeout' && candleState === 'listening' ? 'timeout' : 'failed', reason),
@@ -50,6 +54,15 @@ function bindExperience() {
     return candleState === 'requesting-permission' || candleState === 'calibrating' || candleState === 'listening';
   }
 
+  function setAudioSession(type: 'playback' | 'play-and-record') {
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    try {
+      if (session) session.type = type;
+    } catch {
+      // AudioSession is optional; unsupported routing must not disable the candle.
+    }
+  }
+
   function pauseMusic() {
     musicRequest++;
     musicPending = false;
@@ -57,30 +70,41 @@ function bindExperience() {
   }
 
   async function startMusic() {
-    if (!audio || !wantsMusic || document.hidden || microphoneActive() || microphoneCleanup || musicPending || !audio.paused) return;
+    if (!audio || !wantsMusic || document.hidden || musicPending || !audio.paused) return;
     const request = ++musicRequest;
     musicPending = true;
     try {
       await audio.play();
-      if (!wantsMusic || microphoneActive() || microphoneCleanup) audio.pause();
-    } catch {
-      // Audible autoplay may be blocked; retry from the next user interaction.
+      if (!wantsMusic) audio.pause();
+      musicBlocked = false;
+      if (stage === 'sealed') hint!.textContent = sealedHint;
+    } catch (error) {
+      // Audible autoplay cannot bypass browser policy. The envelope tap also starts music.
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        musicBlocked = true;
+        if (stage === 'sealed') hint!.textContent = siteContent.song.interactionHint;
+      }
     } finally {
       if (request === musicRequest) musicPending = false;
     }
   }
 
   if (audio) {
+    setAudioSession('playback');
     audio.volume = 0.1;
     audio.addEventListener('play', () => {
-      if (!wantsMusic || microphoneActive() || microphoneCleanup) audio.pause();
+      if (!wantsMusic) audio.pause();
+    }, { signal: events.signal });
+    audio.addEventListener('pause', () => {
+      // Some mobile browsers interrupt media when switching to microphone capture.
+      if (microphoneActive()) void startMusic();
     }, { signal: events.signal });
     audio.addEventListener('error', () => {
       wantsMusic = false;
       pauseMusic();
     }, { signal: events.signal });
-    for (const event of ['click', 'keydown']) {
-      document.addEventListener(event, () => { void startMusic(); }, { signal: events.signal });
+    for (const event of ['pointerdown', 'touchend', 'click', 'keydown']) {
+      document.addEventListener(event, () => { void startMusic(); }, { signal: events.signal, capture: true, passive: true });
     }
     void startMusic();
   }
@@ -143,6 +167,7 @@ function bindExperience() {
         if (microphoneCleanup !== cleanup) return;
         microphoneCleanup = undefined;
         if (candleReady) candleReady.disabled = candleState !== 'idle';
+        setAudioSession('playback');
         void startMusic();
       });
       candleSection?.style.removeProperty('--blow-level');
@@ -209,7 +234,7 @@ function bindExperience() {
   candleReady?.addEventListener('click', () => {
     if (stage !== 'reading' || candleState !== 'idle') return;
     updateCandle('ready');
-    pauseMusic();
+    setAudioSession('play-and-record');
     void detector.start();
     // The primary action is disabled while listening; keep keyboard focus usable.
     (microphoneActive() ? candleCancel : candleFallback)?.focus({ preventScroll: true });
@@ -260,7 +285,7 @@ function bindExperience() {
     paper!.disabled = next !== 'lifted';
     paper!.setAttribute('aria-expanded', String(next === 'reading'));
     paper!.setAttribute('aria-hidden', String(next === 'sealed' || next === 'opening'));
-    hint!.textContent = next === 'sealed' ? sealedHint
+    hint!.textContent = next === 'sealed' ? (musicBlocked ? siteContent.song.interactionHint : sealedHint)
       : next === 'opening' ? scene!.dataset.openingHint ?? ''
       : scene!.dataset.liftedHint ?? '';
   }

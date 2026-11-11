@@ -13,9 +13,11 @@ export const blowSettings = {
   startupMs: 250,
   listeningMs: 18000,
   permissionMs: 20000,
-  minimumRms: 0.035,
-  noiseMultiplier: 2.5,
-  sustainedMs: 550,
+  minimumRms: 0.008,
+  noiseMultiplier: 1.8,
+  noiseMargin: 0.004,
+  minimumFlatness: 0.12,
+  sustainedMs: 320,
   windowMs: 900,
   gapMs: 100,
 };
@@ -76,7 +78,8 @@ export function createBlowDetector(callbacks: Callbacks, settings = blowSettings
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+          // Voice processing can remove the breath noise we are trying to detect.
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
       } catch (error) {
         if (current !== run) return;
@@ -110,8 +113,14 @@ export function createBlowDetector(callbacks: Callbacks, settings = blowSettings
       const source = run.source = context.createMediaStreamSource(stream);
       const analyser = run.analyser = context.createAnalyser();
       analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.2;
       source.connect(analyser); // Deliberately never connected to context.destination.
       const samples = new Float32Array(analyser.fftSize);
+      const spectrum = new Float32Array(analyser.frequencyBinCount);
+      const bands = ([[20, 400], [400, 2000], [2000, 8000]] as const).map(([low, high]) => ({
+        first: Math.max(1, Math.ceil(low * analyser.fftSize / context.sampleRate)),
+        last: Math.min(spectrum.length - 1, Math.floor(high * analyser.fftSize / context.sampleRate)),
+      }));
       const ambient: number[] = [];
       const started = performance.now();
       let previous = started;
@@ -145,19 +154,36 @@ export function createBlowDetector(callbacks: Callbacks, settings = blowSettings
                 // Median avoids letting a single startup transient set the floor.
                 ambient.sort((a, b) => a - b);
                 const floor = ambient[Math.floor(ambient.length / 2)] ?? 0;
-                threshold = Math.max(floor * settings.noiseMultiplier, settings.minimumRms);
+                threshold = Math.max(floor * settings.noiseMultiplier, floor + settings.noiseMargin, settings.minimumRms);
                 listening = true;
                 smoothed = 0;
                 callbacks.onState('listening');
               }
             } else {
+              analyser.getFloatFrequencyData(spectrum);
+              const energies = bands.map(({ first, last }) => {
+                let power = 0;
+                let logPower = 0;
+                for (let bin = first; bin <= last; bin++) {
+                  const energy = Math.max(10 ** (spectrum[bin]! / 10), 1e-12);
+                  power += energy;
+                  logPower += Math.log(energy);
+                }
+                const bins = last - first + 1;
+                return { power, flatness: Math.exp(logPower / bins) / (power / bins) };
+              });
+              const totalPower = energies.reduce((total, band) => total + band.power, 0);
+              // Accept both wind rumble and breath hiss, but not harmonics or a silent band's noise floor.
+              const breath = totalPower >= rms * rms * 0.01 && energies.some((band) =>
+                band.power >= totalPower * 0.2 && band.flatness >= settings.minimumFlatness);
               smoothed += (rms - smoothed) * (1 - Math.exp(-dt / 80));
-              callbacks.onLevel(Math.min(1, smoothed / threshold));
+              callbacks.onLevel(breath ? Math.min(1, smoothed / threshold) : 0);
               if (elapsed > 200 || (held > 0 && now - windowStart > settings.windowMs)) {
                 held = gap = 0;
                 elevated = false;
               }
-              elevated = smoothed >= threshold * (elevated ? 0.75 : 1);
+              const gate = threshold * (elevated ? 0.75 : 1);
+              elevated = breath && rms >= gate && smoothed >= gate;
               if (elevated) {
                 if (held === 0) windowStart = now;
                 held += dt;

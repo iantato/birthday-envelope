@@ -549,11 +549,15 @@ test('background audio binds immediately, retries blocked autoplay, and survives
   await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
   await expect(page.locator('html')).toHaveAttribute('data-song-volume', '0.1');
   await expect(page.locator('[data-music-toggle], [data-music-status], audio[controls]')).toHaveCount(0);
-  await page.mouse.click(5, 5);
+  await expect(page.locator('[data-envelope-hint]')).toHaveText(siteContent.song.interactionHint);
+  await page.mouse.move(5, 5);
+  await page.mouse.down();
   await expect(page.locator('html')).toHaveAttribute('data-song-plays', '2');
-  await page.keyboard.press('x');
+  await page.mouse.up();
   await expect(page.locator('html')).toHaveAttribute('data-song-plays', '3');
   await expect(audio).toHaveJSProperty('paused', false);
+  await expect(page.locator('[data-envelope-hint]')).toHaveText(siteContent.envelope.hint);
+  await page.keyboard.press('x');
   await read(page);
   await page.locator('[data-letter-close]').click();
   await expect(audio).toHaveJSProperty('loop', true);
@@ -581,7 +585,7 @@ test('supplied MP3 loads and plays at low volume without controls', async ({ pag
   expect(await audio.evaluate((el: HTMLAudioElement) => el.duration)).toBeGreaterThan(0);
 });
 
-test('music pauses before microphone access and resumes only after teardown across Replay', async ({ page }) => {
+test('microphone access and delayed teardown do not pause or rewind music across Replay', async ({ page }) => {
   await musicFixture(page);
   await page.addInitScript(() => {
     document.addEventListener('error', (event) => {
@@ -596,8 +600,11 @@ test('music pauses before microphone access and resumes only after teardown acro
     const el = document.querySelector<HTMLAudioElement>('[data-audio]')!;
     let paused = false;
     Object.defineProperty(el, 'paused', { configurable: true, get: () => paused });
+    Object.defineProperty(el, 'currentTime', { configurable: true, writable: true, value: 2 });
     el.play = () => { paused = false; return Promise.resolve(); };
     el.pause = () => { paused = true; };
+    const session = { type: 'playback' };
+    Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session });
     Object.defineProperty(window, 'AudioContext', { configurable: true, value: class extends EventTarget {
       state = 'running';
       resume() { return Promise.resolve(); }
@@ -607,23 +614,30 @@ test('music pauses before microphone access and resumes only after teardown acro
     } });
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
       getUserMedia: () => {
-        if (!paused) throw new Error('Audio must pause before microphone request');
+        if (paused) throw new Error('Music must keep playing during microphone access');
+        if (session.type !== 'play-and-record') throw new Error('Concurrent playback routing must be set before capture');
         return new Promise(() => {});
       },
     } });
   });
   await page.locator('[data-candle-ready]').click();
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'requesting-permission');
-  expect(await audio.evaluate((el: HTMLAudioElement) => el.paused)).toBeTruthy();
+  await expect(audio).toHaveJSProperty('paused', false);
+  // Recover a browser-generated interruption without waiting for the user to cancel.
+  await audio.evaluate((el: HTMLAudioElement) => { el.pause(); el.dispatchEvent(new Event('pause')); });
+  await expect(audio).toHaveJSProperty('paused', false);
   await page.locator('[data-candle-cancel]').click();
   await page.locator('[data-replay]').click();
   await read(page);
-  await expect(audio).toHaveJSProperty('paused', true);
+  await expect(audio).toHaveJSProperty('paused', false);
+  expect(await page.evaluate(() => (navigator as any).audioSession.type)).toBe('play-and-record');
   await page.evaluate(() => document.dispatchEvent(new Event('finish-music-close')));
-  await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.paused)).toBeFalsy();
+  await expect.poll(() => page.evaluate(() => (navigator as any).audioSession.type)).toBe('playback');
+  await expect(audio).toHaveJSProperty('paused', false);
+  expect(await audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBe(2);
 });
 
-test('pending play cannot restart music during microphone use', async ({ page }) => {
+test('pending play can finish during microphone use without being paused or restarted', async ({ page }) => {
   await page.addInitScript(() => {
     let paused = true;
     let attempts = 0;
@@ -651,49 +665,74 @@ test('pending play cannot restart music during microphone use', async ({ page })
   await page.locator('[data-candle-ready]').click();
   await page.evaluate(() => document.dispatchEvent(new Event('resolve-late-play')));
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'requesting-permission');
-  await expect(page.locator('[data-audio]')).toHaveJSProperty('paused', true);
+  await expect(page.locator('[data-audio]')).toHaveJSProperty('paused', false);
   await page.keyboard.press('x');
   await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
   await page.locator('[data-candle-cancel]').click();
-  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '2');
-  await page.evaluate(() => document.dispatchEvent(new Event('resolve-late-play')));
+  await expect(page.locator('html')).toHaveAttribute('data-song-plays', '1');
   await expect(page.locator('[data-audio]')).toHaveJSProperty('paused', false);
 });
 
-test('native Web Audio analyser detects a sustained synthetic input without hardware access', async ({ page }) => {
-  await page.goto('/');
-  test.skip(!await page.evaluate(() => Boolean(window.AudioContext?.prototype.createMediaStreamDestination)),
-    'This browser build lacks native Web Audio stream generation.');
-  await read(page);
-  await page.evaluate(() => {
-    if (!navigator.mediaDevices) Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {} });
-    navigator.mediaDevices.getUserMedia = async () => {
-      // A synthetic stream exercises real browser audio nodes, not a physical mic.
-      const context = new AudioContext();
-      await context.resume();
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      const output = context.createMediaStreamDestination();
-      gain.gain.value = 0.005;
-      oscillator.connect(gain).connect(output);
-      oscillator.start();
-      document.addEventListener('start-synthetic-blow', () => { gain.gain.value = 0.2; }, { once: true });
-      document.addEventListener('inspect-synthetic-track', () => {
-        document.documentElement.dataset.syntheticTrack = output.stream.getTracks()[0]!.readyState;
-      });
-      document.addEventListener('stop-synthetic-source', () => { void context.close(); }, { once: true });
-      return output.stream;
-    };
+for (const breathKind of ['hiss', 'wind']) {
+  test(`native Web Audio analyser detects quiet synthetic ${breathKind} while music plays`, async ({ page }) => {
+    await page.goto('/');
+    test.skip(!await page.evaluate(() => Boolean(window.AudioContext?.prototype.createMediaStreamDestination)),
+      'This browser build lacks native Web Audio stream generation.');
+    await read(page);
+    const audio = page.locator('[data-audio]');
+    await expect(audio).toHaveJSProperty('paused', false);
+    const musicTime = await audio.evaluate((el: HTMLAudioElement) => el.currentTime);
+    await page.evaluate((breathKind) => {
+      if (!navigator.mediaDevices) Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {} });
+      navigator.mediaDevices.getUserMedia = async () => {
+        // A synthetic stream exercises real browser audio nodes, not a physical mic.
+        const context = new AudioContext();
+        await context.resume();
+        const noise = context.createBufferSource();
+        const buffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
+        const samples = buffer.getChannelData(0);
+        let seed = 1;
+        for (let index = 0; index < samples.length; index++) {
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          samples[index] = seed / 0x100000000 * 2 - 1;
+        }
+        noise.buffer = buffer;
+        noise.loop = true;
+        const gain = context.createGain();
+        const output = context.createMediaStreamDestination();
+        gain.gain.value = 0.002;
+        if (breathKind === 'wind') {
+          const filter = context.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 400;
+          filter.Q.value = 0.7;
+          noise.connect(filter).connect(gain);
+        } else {
+          noise.connect(gain);
+        }
+        gain.connect(output);
+        noise.start();
+        document.addEventListener('start-synthetic-blow', () => { gain.gain.value = breathKind === 'wind' ? 0.16 : 0.03; }, { once: true });
+        document.addEventListener('inspect-synthetic-track', () => {
+          document.documentElement.dataset.syntheticTrack = output.stream.getTracks()[0]!.readyState;
+        });
+        document.addEventListener('stop-synthetic-source', () => { void context.close(); }, { once: true });
+        return output.stream;
+      };
+    }, breathKind);
+    await page.locator('[data-candle-ready]').click();
+    await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'listening');
+    await expect(audio).toHaveJSProperty('paused', false);
+    await expect(page.locator('[data-candle-wish]')).toHaveText('');
+    await page.evaluate(() => document.dispatchEvent(new Event('start-synthetic-blow')));
+    await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'revealed');
+    await expect(page.locator('[data-candle-wish]')).toHaveText(siteContent.candle.revealedWish);
+    await expect(audio).toHaveJSProperty('paused', false);
+    expect(await audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(musicTime);
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event('inspect-synthetic-track'));
+      document.dispatchEvent(new Event('stop-synthetic-source'));
+    });
+    await expect(page.locator('html')).toHaveAttribute('data-synthetic-track', 'ended');
   });
-  await page.locator('[data-candle-ready]').click();
-  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'listening');
-  await expect(page.locator('[data-candle-wish]')).toHaveText('');
-  await page.evaluate(() => document.dispatchEvent(new Event('start-synthetic-blow')));
-  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'revealed');
-  await expect(page.locator('[data-candle-wish]')).toHaveText(siteContent.candle.revealedWish);
-  await page.evaluate(() => {
-    document.dispatchEvent(new Event('inspect-synthetic-track'));
-    document.dispatchEvent(new Event('stop-synthetic-source'));
-  });
-  await expect(page.locator('html')).toHaveAttribute('data-synthetic-track', 'ended');
-});
+}

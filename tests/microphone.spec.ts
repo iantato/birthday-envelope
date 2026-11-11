@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { siteContent } from '../src/data/siteContent';
 
 type MicMode = 'allow' | 'pending' | 'reject' | 'constraint-once';
 
@@ -15,7 +16,7 @@ async function installMicrophone(page: Page, mode: MicMode = 'allow', errorName 
   await page.addInitScript(({ mode, errorName }) => {
     const state = {
       mode, errorName, calls: [] as unknown[], tracks: [] as FakeTrack[], contexts: [] as FakeContext[],
-      level: 0, resolves: [] as ((stream: MediaStream) => void)[], audioFailure: '',
+      level: 0, signal: 'breath', resolves: [] as ((stream: MediaStream) => void)[], audioFailure: '',
     };
     class FakeTrack extends EventTarget {
       stopCount = 0;
@@ -36,13 +37,26 @@ async function installMicrophone(page: Page, mode: MicMode = 'allow', errorName 
     }
     class FakeAnalyser extends FakeNode {
       fftSize = 2048;
+      smoothingTimeConstant = 0.8;
+      get frequencyBinCount() { return this.fftSize / 2; }
       getFloatTimeDomainData(data: Float32Array) {
         if (state.audioFailure === 'sample') throw new Error('Test sampling failure');
         for (let i = 0; i < data.length; i++) data[i] = i % 2 ? state.level : -state.level;
       }
+      getFloatFrequencyData(data: Float32Array) {
+        const levelDb = 20 * Math.log10(Math.max(state.level, 1e-8));
+        data.fill(state.signal === 'tone' ? -120 : levelDb - 35);
+        if (state.signal === 'tone') {
+          for (const bin of [19, 38, 57]) data[bin] = levelDb - 10;
+        }
+        if (state.signal === 'wind') {
+          for (let bin = 0; bin < data.length; bin++) data[bin] = levelDb - 7 - 20 * Math.log10(Math.max(1, bin));
+        }
+      }
     }
     class FakeContext extends EventTarget {
       state: AudioContextState = 'suspended';
+      sampleRate = 48000;
       destination = {};
       source?: FakeNode;
       analyser?: FakeAnalyser;
@@ -113,18 +127,18 @@ test('ready click creates and resumes context synchronously, then calibrates wit
   });
   expect(immediate).toEqual({ contexts: 1, state: 'running', calls: 1 });
   expect(await page.evaluate(() => (window as any).__micMock.calls[0])).toEqual({
-    audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   });
   await page.evaluate(() => { (window as any).__micMock.level = 0.8; });
   await page.evaluate(() => (window as any).__resolveMic());
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'calibrating');
-  await expect(page.locator('[data-candle-status]')).toHaveText('Getting ready…');
+  await expect(page.locator('[data-candle-status]')).toHaveText(siteContent.candle.calibratingLabel);
   await page.clock.runFor(200);
   await expect(page.locator('[data-candle-wish]')).toHaveText('');
   await page.evaluate(() => { (window as any).__micMock.level = 0; });
   await page.clock.runFor(1_100);
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'listening');
-  await expect(page.locator('[data-candle-status]')).toHaveText('Blow gently toward your microphone…');
+  await expect(page.locator('[data-candle-status]')).toHaveText(siteContent.candle.listeningLabel);
   await expect(page.getByRole('button', { name: 'Tap to blow instead', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Cancel listening', exact: true })).toBeVisible();
   const cancelSize = await page.locator('[data-candle-cancel]').boundingBox();
@@ -165,6 +179,86 @@ test('rejects a short impulse and reveals only after a sustained above-threshold
   expect(cleanup).toEqual({ stops: [1, 1], close: 1, source: 1, analyser: 1 });
   expect(await layout()).toEqual(beforeReveal);
   await expect(page.locator('.candle-flame')).toHaveCSS('opacity', '0');
+});
+
+for (const signal of ['breath', 'wind']) {
+  test(`a quiet half-second ${signal} extinguishes the candle without speaking`, async ({ page }) => {
+    await page.clock.install();
+    await installMicrophone(page);
+    await openReader(page);
+    await page.evaluate(() => { (window as any).__micMock.level = 0.002; });
+    await startMic(page);
+    await page.clock.runFor(1_300);
+    await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'listening');
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+    await page.evaluate((signal) => {
+      const mock = (window as any).__micMock;
+      mock.signal = signal;
+      mock.level = 0.014;
+    }, signal);
+    await page.clock.runFor(500);
+    await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', /^(extinguishing|revealed)$/);
+    await page.evaluate(() => { (window as any).__micMock.level = 0; });
+    await page.clock.runFor(700);
+    await expect(page.locator('[data-candle-wish]')).toHaveText(siteContent.candle.revealedWish);
+  });
+}
+
+test('sustained piano-like harmonics do not extinguish the candle, but a quiet breath does', async ({ page }) => {
+  await page.clock.install();
+  await installMicrophone(page);
+  await openReader(page);
+  await startMic(page);
+  await page.clock.runFor(1_300);
+  await page.evaluate(() => {
+    const mock = (window as any).__micMock;
+    mock.signal = 'tone';
+    mock.level = 0.2;
+  });
+  await page.clock.runFor(3_000);
+  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'listening');
+  await expect(page.locator('[data-candle-wish]')).toHaveText('');
+  await page.evaluate(() => {
+    const mock = (window as any).__micMock;
+    mock.signal = 'breath';
+    mock.level = 0.014;
+  });
+  await page.clock.runFor(1_400);
+  await expect(page.locator('[data-candle-wish]')).toHaveText(siteContent.candle.revealedWish);
+});
+
+test('music keeps playing throughout microphone calibration, listening and candle reveal', async ({ page }) => {
+  await page.clock.install();
+  await installMicrophone(page);
+  await page.addInitScript(() => {
+    let paused = true;
+    const state = { pauses: 0, session: { type: 'auto' } };
+    Object.defineProperty(window, '__musicMock', { value: state });
+    Object.defineProperty(navigator, 'audioSession', { configurable: true, value: state.session });
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', { get: () => paused });
+    HTMLMediaElement.prototype.play = function () { paused = false; this.dispatchEvent(new Event('play')); return Promise.resolve(); };
+    HTMLMediaElement.prototype.pause = function () { paused = true; state.pauses++; };
+    document.addEventListener('error', (event) => {
+      if (event.target instanceof HTMLMediaElement) event.stopImmediatePropagation();
+    }, true);
+  });
+  await openReader(page);
+  const audio = page.locator('[data-audio]');
+  await expect(audio).toHaveJSProperty('paused', false);
+  expect(await page.evaluate(() => (navigator as any).audioSession.type)).toBe('playback');
+  await startMic(page);
+  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'calibrating');
+  await expect(audio).toHaveJSProperty('paused', false);
+  expect(await page.evaluate(() => (navigator as any).audioSession.type)).toBe('play-and-record');
+  await page.clock.runFor(1_300);
+  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'listening');
+  await expect(audio).toHaveJSProperty('paused', false);
+  await page.evaluate(() => { (window as any).__micMock.level = 0.014; });
+  await page.clock.runFor(1_400);
+  await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'revealed');
+  await expect(audio).toHaveJSProperty('paused', false);
+  expect(await page.evaluate(() => (window as any).__musicMock.pauses)).toBe(0);
+  expect(await page.evaluate(() => (navigator as any).audioSession.type)).toBe('playback');
 });
 
 test('pending permission times out and stops a stream that resolves after timeout', async ({ page }) => {

@@ -23,7 +23,7 @@ type SiteContent = {
     paperColor: string;
   };
   letter: { greeting: string; paragraphs: string[]; signOff: string; closeLabel: string };
-  song: { src: string };
+  song: { src: string; interactionHint: string };
   gallery: { heading: string; openLabel: string; closeLabel: string; dialogLabel: string; unavailableLabel: string };
   memories: Memory[];
   candle: {
@@ -75,6 +75,7 @@ export const siteContent: SiteContent = {
   },
   song: {
     src: '/audio/saksi-ang-langit-piano.mp3',
+    interactionHint: 'Tap to open with music',
   },
   gallery: {
     heading: 'A few moments I love',
@@ -93,8 +94,8 @@ export const siteContent: SiteContent = {
     fallbackLabel: 'Tap to blow instead',
     cancelLabel: 'Cancel listening',
     requestingLabel: 'Waiting for microphone permission…',
-    calibratingLabel: 'Getting ready…',
-    listeningLabel: 'Blow gently toward your microphone…',
+    calibratingLabel: 'Stay quiet for a moment...',
+    listeningLabel: 'Now blow gently near your microphone...',
     fallbackMessage: "We couldn't listen this time. You can tap to blow instead.",
     unsupportedMessage: "Microphone listening isn't supported here. You can tap to blow instead.",
     deniedMessage: 'Microphone access is off. You can tap to blow instead.',
