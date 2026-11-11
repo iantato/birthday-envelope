@@ -121,7 +121,7 @@ test('candle consent copy, denied microphone, keyboard fallback and Replay reset
   await page.goto('/');
   await read(page);
   const section = page.locator('[data-candle-section]');
-  const ready = page.getByRole('button', { name: "I'm ready", exact: true });
+  const ready = page.getByRole('button', { name: siteContent.candle.readyLabel, exact: true });
   const fallback = page.getByRole('button', { name: 'Tap to blow instead', exact: true });
   const status = page.locator('[data-candle-status]');
   await expect(section).toHaveAttribute('data-candle-state', 'idle');
@@ -171,6 +171,37 @@ test('Replay cancels an in-flight candle reveal', async ({ page }) => {
   await read(page);
   await expect(page.locator('[data-candle-section]')).toHaveAttribute('data-candle-state', 'idle');
   await expect(page.locator('[data-candle-wish]')).toHaveText('');
+});
+
+test('reference-inspired signed ending places the wish button above an illustrated cake', async ({ page }, info) => {
+  await page.goto('/');
+  await read(page);
+  await page.evaluate(() => document.fonts.ready);
+  const ready = page.getByRole('button', { name: 'make a wish', exact: true });
+  await expect(ready).toBeEnabled();
+  await expect(page.getByRole('button', { name: "I'm ready", exact: true })).toHaveCount(0);
+  await expect(page.locator('.reader-signature')).toContainText('Love,');
+  await expect(page.locator('.reader-sender')).toHaveText('Christian');
+  await expect(page.locator('.birthday-cake')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.wish-divider')).toHaveAttribute('aria-hidden', 'true');
+  const order = await page.evaluate(() => {
+    const signature = document.querySelector('.reader-signature')!.getBoundingClientRect();
+    const heading = document.querySelector('#candle-heading')!.getBoundingClientRect();
+    const ready = document.querySelector('[data-candle-ready]')!.getBoundingClientRect();
+    const cake = document.querySelector('[data-candle-trigger]')!.getBoundingClientRect();
+    const fallback = document.querySelector('[data-candle-fallback]')!.getBoundingClientRect();
+    return [signature.bottom <= heading.top, heading.bottom <= ready.top,
+      ready.bottom <= cake.top, cake.bottom <= fallback.top];
+  });
+  expect(order).toEqual([true, true, true, true]);
+  await page.locator('[data-candle-section]').screenshot({ path: info.outputPath('wish-reference-ending.png') });
+  expect(await page.locator(reader).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+  await page.locator('[data-candle-fallback]').click();
+  await expect(page.locator('[data-candle-wish]')).toHaveText(siteContent.candle.revealedWish);
+  await page.locator('[data-replay]').click();
+  await read(page);
+  await expect(ready).toBeEnabled();
+  await expect(page.locator('[data-candle-trigger]')).toHaveAttribute('data-blown', 'false');
 });
 
 test('candle bends, fades, smokes and reveals without moving surrounding content', async ({ page }, info) => {
@@ -341,7 +372,9 @@ test('Arshelle receives the full formatted letter without photos or placeholder 
     'we get to grow old and ugly together HAHAHA.',
     'I love you so much, always. ❤️',
   ]);
-  await expect(page.locator(`${reader} img, [data-memory-open], [data-photo-dialog], .reader-signature`)).toHaveCount(0);
+  await expect(page.locator(`${reader} img, [data-memory-open], [data-photo-dialog]`)).toHaveCount(0);
+  await expect(page.locator('.reader-sign-off')).toHaveText('Love,');
+  await expect(page.locator('.reader-sender')).toHaveText('Christian');
   await expect(page.locator(reader)).not.toContainText('From Me');
   await expect(page.locator(reader)).not.toContainText('One last thing');
   await page.locator('[data-replay]').scrollIntoViewIfNeeded();

@@ -46,7 +46,7 @@ export const siteContent: SiteContent = {
   pageTitle: 'A letter for Arshelle',
   description: 'A birthday letter and a wish for Arshelle.',
   recipientName: 'Arshelle',
-  senderName: '',
+  senderName: 'Christian',
   // Optional CSS variable overrides; defaults live in styles/global.css.
   theme: {},
   envelope: {
@@ -74,7 +74,7 @@ export const siteContent: SiteContent = {
       "Happy birthday again, love! Here's to more time together, more memories, more kulitans, and hopefully, a lifetime of us.",
       '**I love you so much, always. ❤️**',
     ],
-    signOff: '',
+    signOff: 'Love,',
   },
   song: {
     title: 'Our song',
@@ -96,7 +96,7 @@ export const siteContent: SiteContent = {
     buttonLabel: 'Blow out the candle',
     hint: 'Close your eyes, make a wish, and blow out the candle. \u2661',
     doneLabel: 'Candle blown out. A wish for you.',
-    readyLabel: "I'm ready",
+    readyLabel: 'make a wish',
     fallbackLabel: 'Tap to blow instead',
     cancelLabel: 'Cancel listening',
     requestingLabel: 'Waiting for microphone permission…',

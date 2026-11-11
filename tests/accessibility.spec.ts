@@ -19,7 +19,7 @@ async function read(page: Page) {
 
 test('candle controls have accessible names, 44px targets, keyboard focus and readable contrast', async ({ page }) => {
   await read(page);
-  const ready = page.getByRole('button', { name: "I'm ready", exact: true });
+  const ready = page.getByRole('button', { name: siteContent.candle.readyLabel, exact: true });
   const fallback = page.getByRole('button', { name: 'Tap to blow instead', exact: true });
   await expect(page.getByRole('button', { name: siteContent.candle.buttonLabel, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: siteContent.candle.cancelLabel, exact: true })).toHaveCount(0);
@@ -48,7 +48,11 @@ test('candle controls have accessible names, 44px targets, keyboard focus and re
   }
   await ready.focus();
   await page.keyboard.press('Tab');
+  await expect(page.locator('[data-candle-trigger]')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(fallback).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('[data-candle-trigger]')).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(ready).toBeFocused();
   const contrast = await ready.evaluate((button) => {
@@ -65,12 +69,14 @@ test('candle controls have accessible names, 44px targets, keyboard focus and re
       return (values[1]! + .05) / (values[0]! + .05);
     };
     return { focusVisible: button.matches(':focus-visible'), outline: parseFloat(style.outlineWidth),
-      text: ratio(style.color, style.backgroundColor), focus: ratio(style.outlineColor, style.backgroundColor) };
+      text: ratio(style.color, style.backgroundColor),
+      focus: ratio(style.outlineColor, getComputedStyle(document.querySelector('[data-letter-dialog]')!).backgroundColor) };
   });
   expect(contrast.focusVisible).toBeTruthy();
   expect(contrast.outline).toBeGreaterThanOrEqual(2);
   expect(contrast.text).toBeGreaterThanOrEqual(4.5);
   expect(contrast.focus).toBeGreaterThanOrEqual(3);
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Space');
   await expect(page.locator('[data-candle-wish]')).toHaveText(siteContent.candle.revealedWish);

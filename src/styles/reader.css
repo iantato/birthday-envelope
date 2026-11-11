@@ -105,11 +105,35 @@ body.letter-reading {
 }
 
 .reader-signature {
-  margin-top: 40px;
+  width: fit-content;
+  margin: 40px 0 0 auto;
+  text-align: right;
+  color: #705a59;
 }
 
 .reader-signature p {
   margin-bottom: 0;
+}
+
+.reader-sign-off {
+  font-size: .8125rem;
+  font-style: italic;
+}
+
+.reader-sender {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 1.125rem;
+  font-weight: 500;
+  letter-spacing: -.035em;
+}
+
+.reader-sender svg {
+  fill: none;
+  stroke: #b4797d;
+  stroke-width: 1.2;
 }
 
 .text-control {
@@ -258,44 +282,124 @@ body.letter-reading {
 }
 
 .candle-section {
-  --candle-flame-color: #d2b17d;
-  --candle-smoke-color: var(--muted);
+  --candle-flame-color: #ffc46f;
+  --candle-smoke-color: #ad9690;
+  --wish-rose: #9e4855;
+  --wish-ink: #65504e;
   --candle-bend-duration: 200ms;
   --candle-fade-duration: 320ms;
   --candle-smoke-duration: 1200ms;
   --candle-wish-duration: 500ms;
   --candle-flicker-duration: 1800ms;
+  position: relative;
+  isolation: isolate;
+  margin-top: 34px;
+  padding-top: 0;
+  border-top: 0;
   text-align: center;
+  color: var(--wish-ink);
+}
+
+.candle-section::before {
+  position: absolute;
+  z-index: -1;
+  inset: 12px -20px 10%;
+  background: radial-gradient(ellipse at 50% 48%, rgb(246 220 208 / .3), transparent 70%);
+  content: '';
+  pointer-events: none;
+}
+
+.wish-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 34px;
+  color: #cc9290;
+}
+
+.wish-divider span {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, #e5cfca);
+}
+
+.wish-divider span:last-child {
+  transform: rotate(180deg);
+}
+
+.wish-divider svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+.candle-section h2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-family: 'Lexend', sans-serif;
+  font-size: 1.375rem;
+  line-height: 1.4;
+  letter-spacing: -.04em;
+}
+
+.wish-heading-rays {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  fill: none;
+  stroke: #da9690;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.candle-invitation {
+  margin: 20px 0 12px;
 }
 
 .candle-trigger {
   position: relative;
   display: block;
-  width: 76px;
-  height: 140px;
+  width: min(100%, 280px);
+  height: auto;
+  aspect-ratio: 320 / 250;
   margin: 0 auto;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: 12px;
   background: transparent;
   touch-action: manipulation;
 }
 
+.birthday-cake {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 9px 9px rgb(191 133 104 / .08));
+}
+
 .candle-wax {
   position: absolute;
-  bottom: 12px;
-  left: 27px;
-  width: 22px;
-  height: 76px;
-  border: 1px solid var(--envelope-edge);
-  border-radius: 4px 4px 2px 2px;
-  background: var(--envelope-face);
+  bottom: 34%;
+  left: calc(50% - 7px);
+  width: 14px;
+  height: 29%;
+  border: 1px solid #e6ad9f;
+  border-radius: 3px 3px 2px 2px;
+  background: repeating-linear-gradient(155deg, #fff0df 0 8px, #e6a29a 8px 14px, #f3c1af 14px 16px);
+  box-shadow: inset 3px 0 3px rgb(255 255 255 / .45);
 }
 
 .candle-wick {
   position: absolute;
-  bottom: 88px;
-  left: 37px;
+  bottom: 63%;
+  left: calc(50% - 1px);
   width: 2px;
   height: 9px;
   background: var(--ink);
@@ -303,12 +407,20 @@ body.letter-reading {
 
 .candle-flame {
   position: absolute;
-  bottom: 96px;
+  bottom: calc(63% + 8px);
   left: 50%;
-  width: 12px;
-  height: 24px;
+  width: 15px;
+  height: 28px;
   transform: translateX(-50%);
   transform-origin: center bottom;
+}
+
+.candle-flame::before {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(255 198 111 / .25), transparent 70%);
+  content: '';
 }
 
 .candle-flame-core {
@@ -316,13 +428,14 @@ body.letter-reading {
   width: 100%;
   height: 100%;
   border-radius: 65% 35% 55% 45%;
-  background: var(--candle-flame-color);
+  background: radial-gradient(ellipse at 50% 78%, #fff9d1 8%, #ffde8d 35%, var(--candle-flame-color) 70%);
+  box-shadow: inset 1px 0 2px rgb(234 155 82 / .18);
   transform-origin: center bottom;
 }
 
 .candle-smoke {
   position: absolute;
-  bottom: 96px;
+  bottom: calc(63% + 8px);
   left: 50%;
   overflow: visible;
   opacity: 0;
@@ -341,15 +454,19 @@ body.letter-reading {
 }
 
 .reader-letter .candle-hint {
-  margin-bottom: 12px;
+  max-width: 27ch;
+  margin: 0 auto;
   font-size: .875rem;
+  line-height: 1.7;
+  text-wrap: balance;
 }
 
 .candle-actions {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  margin-top: 6px;
 }
 
 .candle-actions [data-candle-cancel][hidden] {
@@ -359,26 +476,83 @@ body.letter-reading {
 }
 
 .candle-ready {
-  padding: 8px 24px;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  background: var(--envelope-face);
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: .625rem;
+  padding: .65rem 1rem;
+  border: 1px solid rgb(142 59 73 / .2);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #b05965, var(--wish-rose));
+  background-color: var(--wish-rose);
+  color: #fff;
+  font-size: .875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  box-shadow: 0 5px 12px rgb(158 72 85 / .18), inset 0 1px 0 rgb(255 255 255 / .2);
 }
 
+.candle-ready span {
+  min-width: 0;
+}
+
+.candle-ready svg {
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.candle-ready .wish-wind-icon {
+  box-sizing: content-box;
+  padding-right: 10px;
+  border-right: 1px solid rgb(255 255 255 / .25);
+}
+
+.candle-ready:not(:disabled):hover {
+  background-color: #913d4b;
+  box-shadow: 0 7px 16px rgb(158 72 85 / .24), inset 0 1px 0 rgb(255 255 255 / .22);
+}
+
+.candle-ready:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.candle-ready:disabled,
 .candle-actions button:disabled {
   opacity: .6;
+}
+
+.candle-ready:focus-visible {
+  outline-color: var(--wish-ink);
+}
+
+.candle-trigger:not(:disabled):hover .birthday-cake {
+  transform: translateY(-2px);
+}
+
+.candle-actions .text-control {
+  color: var(--wish-ink);
+  font-size: .8125rem;
+  text-decoration: underline;
+  text-decoration-color: #d5b9b4;
 }
 
 .reader-letter .candle-status {
   min-height: 4.5em;
   max-width: 40ch;
-  margin: 12px auto;
+  margin: 4px auto 12px;
   font-size: .8125rem;
   line-height: 1.5;
 }
 
 .candle-wish-slot {
   display: grid;
+  max-width: 34ch;
+  margin-inline: auto;
 }
 
 .reader-letter .candle-wish,
@@ -419,6 +593,11 @@ body.letter-reading {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .candle-ready,
+  .birthday-cake {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+  }
+
   .candle-trigger[data-blown='false'] .candle-flame-core {
     animation: candle-flicker var(--candle-flicker-duration) ease-in-out infinite;
   }
